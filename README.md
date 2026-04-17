@@ -1,99 +1,93 @@
-<h1 align="center">:whale2: Orca</h1>
-<div align="center">A free and open-source Roblox script hub</div>
+<h1 align="center">🐋 Orca+</h1>
+<div align="center">A free and open-source Roblox script hub — forked from <a href="https://github.com/richie0866/orca">richie0866/orca</a> with custom additions</div>
 <br>
-<div align="center">
-	<a href="https://github.com/richie0866/orca/actions"><img src="https://github.com/richie0866/orca/actions/workflows/eslint.yaml/badge.svg" alt="ESLint Status" /></a>
-	<a href="https://github.com/richie0866/orca/releases/latest"><img src="https://img.shields.io/github/v/release/richie0866/orca?include_prereleases" alt="Latest Release" /></a>
-</div>
-<div>&nbsp;</div>
 
-## :whale2: Introduction
-
-**Orca** is a **general-purpose** Roblox script hub designed to make convenient tasks **easy** and **satisfying**.
-
-Use many different **action cards** on the [**Home**](https://github.com/richie0866/orca#house-home) and [**Apps**](https://github.com/richie0866/orca#iphone-apps) page, or check out what we have featured on the [**Scripts**](https://github.com/richie0866/orca#newspaper-scripts) page.
-
-Press `K` to open or close Orca. For the best experience, a 1080p monitor or above is recommended!
-
-&nbsp;
-
-## :rocket: Quick start
-
-When run with auto-execution, Orca will start minimized by default.
-
-### :pushpin: Latest release
-
-Runs the latest release build of Orca.
+## 🚀 Quick start
 
 ```lua
 loadstring(
-  game:HttpGetAsync("https://raw.githubusercontent.com/richie0866/orca/master/public/latest.lua")
+  game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/orca.lua")
 )()
 ```
 
-### :construction: Nightly snapshot
+Press `K` to open or close Orca. A 1080p monitor or above is recommended.
 
-Runs a snapshot of new updates we have not published yet. You will get new features earlier, but they may be unstable.
+&nbsp;
 
-```lua
-loadstring(
-  game:HttpGetAsync("https://raw.githubusercontent.com/richie0866/orca/master/public/snapshot.lua")
-)()
+## 🔨 Building from source
+
+Requirements: **Node.js**, **rojo** (v7), **remodel**
+
+```bash
+cd orca
+npm install
+
+# Compile TypeScript → Lua
+.\node_modules\.bin\rbxtsc --type=model
+
+# Build Roblox model
+rojo build default.project.json --output Orca.rbxm
+
+# Bundle into a single .lua
+remodel run ci/bundle.lua public/orca.lua dev verbose
 ```
 
 &nbsp;
 
-## :books: Navigation
+## 📖 Navigation
 
-### :house: Home
+### 🏠 Home
 
-The **Home** page has a handful of intuitive information and action cards.
+- **Profile** — Sliders for flight, walk speed, and jump height. Buttons for refresh, ghost, godmode, freecam.
+- **Server** — Rejoin or server hop. Tap again to cancel.
+- **Friend Activity** — Games your friends are currently playing.
 
-- :blush: **Profile** - You, and some actions that modify your character.
+### 📱 Apps
 
-  - :radio_button: **Sliders** - Flight, walk speed, and jump height
-  - :radio_button: **Buttons** - Refresh, ghost, godmode, or freecam
+- **Players** — Select a player and perform actions on them.
+  - **Goto** — Teleport to them. Tap again to cancel.
+  - **Hide** — Hide their character locally. Persists between players.
+  - **Kill** — Uses a tool handle to teleport them to the void.
+  - **Spectate** — Third-person view of their character.
 
-- :desktop_computer: **Server** - Your server, and options to rejoin or server hop. Tap again to cancel.
+- **Visuals** *(new)* — Enemy ESP panel.
+  - **Fill / Outline sliders** — Adjust highlight opacity live (0–100%).
+  - **Enable / Disable ESP** — Toggle Highlight instances on all other players.
+  - Keybind: `X` (rebindable in Options → Shortcuts)
 
-- :video_game: **Friend Activity** - A list of games your friends are playing.
+### 📰 Scripts
 
-### :iphone: Apps
+A small collection of community favorites:
 
-The **Apps** page acts as a hub for general and miscellaneous features.
+- **Solaris** — https://solarishub.dev
+- **V.G Hub** — https://github.com/1201for
+- **EvoV2** — https://projectevo.xyz
+- **CMD-X** — https://github.com/CMD-X
+- **Infinite Yield** — https://github.com/EdgeIY
+- **Dex Explorer** — https://github.com/LorekeeperZinnia
+- **Unnamed ESP** — https://github.com/ic3w0lf22
 
-- :hugs: **Players** - A selection of players and some actions you can perform on them.
+### ⚙️ Options
 
-  - :radio_button: **Goto** - Moves your character to theirs. Tap again to cancel.
-  - :radio_button: **Hide** - Hides their character locally until disabled. Persists between players.
-  - :radio_button: **Kill** - Uses a tool with a handle to "bind" to their character and teleport to the void.
-  - :radio_button: **Spectate** - Toggles a third-person view of their character. Disables when they respawn or the subject changes.
-
-### :newspaper: Scripts
-
-The **Scripts** page is a small collection of community-favorites you should try.
-
-- :books: **Solaris** - https://solarishub.dev
-- :books: **V.G Hub** - https://github.com/1201for
-- :books: **EvoV2** - https://projectevo.xyz
-- :shield: **CMD-X** - https://github.com/CMD-X
-- :shield: **Infinite Yield** - https://github.com/EdgeIY
-- :mag_right: **Dex Explorer** - https://github.com/LorekeeperZinnia
-- :mag_right: **Unnamed ESP** - https://github.com/ic3w0lf22
-
-### :gear: Options
-
-The **Options** page lets you configure theming and UI performance.
-
- - [x] Set theme
- - [ ] Toggle acrylic effect
- - [ ] Keybinds
- - [ ] Save settings
+- Set theme (Dark, Light, Sorbet, Obsidian, Frosted Glass, High Contrast)
+- Toggle acrylic effect
+- Keybinds — including **Toggle ESP** (default `X`)
+- Save settings
 
 &nbsp;
 
-## :sparkling_heart: Support
+## ✅ Supported executors
 
-- :white_check_mark: ScriptWare
-- :white_check_mark: Synapse X
-- :white_check_mark: Krnl
+- ScriptWare
+- Synapse X
+- Krnl
+
+&nbsp;
+
+## 🔄 Reconnect / server hop
+
+On reconnect or server hop, Orca re-fetches from this fork's raw URL automatically — no extra setup needed. If you want to override this with a local file, set before loading:
+
+```lua
+getgenv()._ORCA_RELOAD = 'loadstring(readfile("path/to/orca.lua"))()'
+```
