@@ -14,26 +14,6 @@ Press `K` to open or close Orca. A 1080p monitor or above is recommended.
 
 &nbsp;
 
-## 🔨 Building from source
-
-Requirements: **Node.js**, **rojo** (v7), **remodel**
-
-```bash
-cd orca
-npm install
-
-# Compile TypeScript → Lua
-.\node_modules\.bin\rbxtsc --type=model
-
-# Build Roblox model
-rojo build default.project.json --output Orca.rbxm
-
-# Bundle into a single .lua
-remodel run ci/bundle.lua public/orca.lua dev verbose
-```
-
-&nbsp;
-
 ## 📖 Navigation
 
 ### 🏠 Home
@@ -76,11 +56,12 @@ A small collection of community favorites:
 
 &nbsp;
 
-## ✅ Supported executors
+## ✅ Tested executors
 
-- ScriptWare
-- Synapse X
-- Krnl
+- Xeno (Reccomended)
+- Solara
+- JJSploit
+- Delta
 
 &nbsp;
 
