@@ -233,6 +233,7 @@ export const darkTheme: Theme = {
 			},
 
 			highlight: {
+				esp: hex("#ff6464"),
 				teleport: hex("#37CC95"),
 				hide: hex("#f09c2d"),
 				kill: hex("#EC423D"),

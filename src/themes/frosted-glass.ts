@@ -145,6 +145,7 @@ export const frostedGlass: Theme = {
 		players: {
 			...view,
 			highlight: {
+				esp: accent,
 				teleport: accent,
 				hide: accent,
 				kill: accent,

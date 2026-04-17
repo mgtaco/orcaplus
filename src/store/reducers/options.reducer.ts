@@ -10,6 +10,7 @@ const initialState: OptionsState = persistentState<OptionsState>("options", (sta
 	},
 	shortcuts: {
 		toggleDashboard: Enum.KeyCode.K.Value,
+		toggleEsp: Enum.KeyCode.X.Value,
 	},
 });
 

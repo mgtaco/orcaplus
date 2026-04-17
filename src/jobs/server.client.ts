@@ -44,13 +44,15 @@ async function onRejoin() {
 	}
 }
 
-function queueExecution() {
-	const isRelease = VERSION.match("^.+%..+%..+$") !== undefined;
-	const code = isRelease
-		? 'loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/richie0866/orca/master/public/latest.lua"))()'
-		: 'loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/richie0866/orca/master/public/snapshot.lua"))()';
+// URL of the hosted orca.lua to re-execute after teleport.
+// Change this to your own fork/pastebin raw URL so your custom build persists.
+const RELOAD_URL = "https://raw.githubusercontent.com/richie0866/orca/master/public/latest.lua";
 
-	(syn?.queue_on_teleport ?? queue_on_teleport)?.(code);
+function queueExecution() {
+	const queueFn = syn?.queue_on_teleport ?? queue_on_teleport;
+	if (!queueFn) return;
+
+	queueFn(`loadstring(game:HttpGetAsync(${string.format("%q", RELOAD_URL)}))()`);
 }
 
 async function main() {

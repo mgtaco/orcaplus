@@ -11,6 +11,9 @@ const initialState: JobsState = {
 	ghost: { active: false },
 	godmode: { active: false },
 	freecam: { active: false },
+	esp: { active: false },
+	espFill: { value: 40, active: false },
+	espOutline: { value: 100, active: false },
 
 	teleport: { active: false },
 	hide: { active: false },

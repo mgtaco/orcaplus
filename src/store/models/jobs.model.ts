@@ -24,6 +24,9 @@ export type JobsState = {
 	ghost: Job;
 	godmode: Job;
 	freecam: Job;
+	esp: Job;
+	espFill: JobWithValue<number>;
+	espOutline: JobWithValue<number>;
 
 	teleport: Job;
 	hide: Job;

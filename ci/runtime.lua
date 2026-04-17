@@ -9,6 +9,32 @@
 -- GitHub: https://github.com/richie0866/orca
 --]]
 
+-- Persist this custom build across reconnects / server hops.
+--
+-- If your executor supports script.Source this happens automatically.
+-- Otherwise, add ONE line before running orca (e.g. in autoexec):
+--
+--   getgenv()._ORCA_RELOAD = 'loadstring(readfile("path/to/orca.lua"))()'
+--
+-- Orca will queue that string instead of fetching from GitHub.
+do
+	-- Only auto-set _ORCA_RELOAD when the user has not already specified one.
+	local g = type(getgenv) == "function" and getgenv() or nil
+	if g and not g._ORCA_RELOAD then
+		local ok, src = pcall(function() return script.Source end)
+		if ok and type(src) == "string" and #src > 1000 then
+			-- Source looks valid — save to disk and mark the reload path.
+			pcall(function()
+				if not isfolder("_orca") then
+					makefolder("_orca")
+				end
+				writefile("_orca/orca.lua", src)
+				g._ORCA_RELOAD = 'loadstring(readfile("_orca/orca.lua"))()'
+			end)
+		end
+	end
+end
+
 -- Runtime module
 
 ---@class Module

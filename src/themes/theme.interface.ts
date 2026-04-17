@@ -82,6 +82,7 @@ export interface Theme {
 			};
 			button: Omit<ButtonTheme, "accent">;
 			highlight: {
+				esp: Color3;
 				teleport: Color3;
 				hide: Color3;
 				kill: Color3;

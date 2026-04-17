@@ -55,7 +55,7 @@ export default Sliders;
 function SliderComponent(props: {
 	display: string;
 	hint: string;
-	jobName: keyof JobsWithValue<number>;
+	jobName: "flight" | "walkSpeed" | "jumpHeight";
 	units: string;
 	min: number;
 	max: number;

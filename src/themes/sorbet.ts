@@ -139,6 +139,7 @@ export const sorbet: Theme = {
 		players: {
 			...view,
 			highlight: {
+				esp: redAccent,
 				teleport: redAccent,
 				hide: blueAccent,
 				kill: redAccent,
