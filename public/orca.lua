@@ -3994,6 +3994,7 @@ local onRejoin = TS.async(function()
 		TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
 	end
 end)
+local RELOAD_URL = "https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/orca.lua"
 function queueExecution()
 	local _result = syn
 	if _result ~= nil then
@@ -4007,18 +4008,7 @@ function queueExecution()
 	if not queueFn then
 		return nil
 	end
-	local _result_1 = getgenv
-	if _result_1 ~= nil then
-		_result_1 = _result_1()._ORCA_RELOAD
-	end
-	local orcaReload = _result_1
-	local _condition_1 = orcaReload
-	if _condition_1 ~= "" and _condition_1 then
-		_condition_1 = typeof(orcaReload) == "string"
-	end
-	if _condition_1 ~= "" and _condition_1 then
-		queueFn(orcaReload)
-	end
+	queueFn("loadstring(game:HttpGetAsync(" .. (string.format("%q", RELOAD_URL) .. "))()"))
 end
 local main = TS.async(function()
 	local store = TS.await(getStore())
