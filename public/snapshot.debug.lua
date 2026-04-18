@@ -3992,7 +3992,8 @@ local onRejoin = TS.async(function()\
 \9\9TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)\
 \9end\
 end)\
-local RELOAD_URL = \"https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/snapshot.lua\"\
+local BASE_URL = \"https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/\"\
+local RELOAD_URL = BASE_URL .. (string.sub(VERSION, 1, 1) == \"v\" and \"latest.lua\" or \"snapshot.lua\")\
 function queueExecution()\
 \9local _result = syn\
 \9if _result ~= nil then\
