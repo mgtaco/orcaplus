@@ -54,7 +54,7 @@ async function autosave(name: string, selector: (state: RootState) => object) {
 		write(`_orca/${name}.json`, HttpService.JSONEncode(state));
 	}
 
-	setInterval(() => save, 60000);
+	setInterval(save, 60000);
 
 	Players.PlayerRemoving.Connect((player) => {
 		if (player === Players.LocalPlayer) {
