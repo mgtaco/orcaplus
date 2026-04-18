@@ -6,7 +6,7 @@
 
 ```lua
 loadstring(
-  game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/orca.lua")
+  game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/snapshot.lua")
 )()
 ```
 
