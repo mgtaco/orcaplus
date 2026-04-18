@@ -27,6 +27,7 @@ export type JobsState = {
 	esp: Job;
 	espFill: JobWithValue<number>;
 	espOutline: JobWithValue<number>;
+	espHue: JobWithValue<number>;
 
 	teleport: Job;
 	hide: Job;

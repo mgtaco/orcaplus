@@ -14,24 +14,34 @@ import { setJobActive, setJobValue } from "store/actions/jobs.action";
 import { DashboardPage } from "store/models/dashboard.model";
 import { px, scale } from "utils/udim2";
 
+function hueToColor(hue: number): Color3 {
+	return Color3.fromHSV(hue / 360, 1, 1);
+}
+
 function Esp() {
 	const dispatch = useAppDispatch();
 	const theme = useTheme("apps").players;
+	const profileHighlight = useTheme("home").profile.highlight;
 	const active = useAppSelector((state) => state.jobs.esp.active);
 	const fillJob = useAppSelector((state) => state.jobs.espFill);
 	const outlineJob = useAppSelector((state) => state.jobs.espOutline);
+	const hueJob = useAppSelector((state) => state.jobs.espHue);
 
 	const [hovered, setHovered] = useState(false);
 	const [fillValue, setFillValue] = useBinding(fillJob.value);
 	const [outlineValue, setOutlineValue] = useBinding(outlineJob.value);
+	const [hueValue, setHueValue] = useBinding(hueJob.value);
+	const [hueColor, setHueColor] = useState(hueToColor(hueJob.value));
 
-	const accent = theme.highlight.esp;
+	const fillAccent = profileHighlight.flight;
+	const outlineAccent = profileHighlight.walkSpeed;
+	const hueAccent = profileHighlight.jumpHeight;
 
 	const toggleBackground = useSpring(
 		active
-			? accent
+			? hueColor
 			: hovered
-			? theme.button.backgroundHovered ?? theme.button.background.Lerp(accent, 0.1)
+			? theme.button.backgroundHovered ?? theme.button.background.Lerp(hueColor, 0.1)
 			: theme.button.background,
 		{},
 	);
@@ -45,7 +55,7 @@ function Esp() {
 	);
 
 	return (
-		<Card index={2} page={DashboardPage.Apps} theme={theme} size={px(326, 376)} position={new UDim2(0, 374, 1, 0)}>
+		<Card index={2} page={DashboardPage.Apps} theme={theme} size={px(326, 437)} position={new UDim2(0, 374, 1, 0)}>
 			{/* Heading */}
 			<textlabel
 				Text="Visuals"
@@ -61,12 +71,12 @@ function Esp() {
 			{/* Live preview box */}
 			<Canvas size={px(278, 100)} position={px(24, 60)}>
 				<Fill color={theme.button.background} radius={16} transparency={theme.button.backgroundTransparency} />
-				<Border color={theme.foreground} radius={16} transparency={0.9} />
+				{theme.button.outlined && <Border color={theme.button.foreground} radius={16} transparency={0.8} />}
 
 				{/* Target highlight mockup — updates live as sliders move */}
 				<Canvas size={px(80, 68)} position={px(99, 16)}>
-					<Fill color={accent} radius={14} transparency={fillValue.map((v) => 1 - v / 100)} />
-					<Border color={accent} radius={14} transparency={outlineValue.map((v) => 1 - v / 100)} />
+					<Fill color={hueColor} radius={14} transparency={fillValue.map((v) => 1 - v / 100)} />
+					<Border color={hueColor} radius={14} transparency={outlineValue.map((v) => 1 - v / 100)} />
 					<textlabel
 						Text="TARGET"
 						Font="GothamBlack"
@@ -90,7 +100,7 @@ function Esp() {
 					position={px(0, 0)}
 					radius={8}
 					color={theme.button.background}
-					accentColor={accent}
+					accentColor={fillAccent}
 					borderEnabled={theme.button.outlined}
 					borderColor={theme.button.foreground}
 					transparency={theme.button.backgroundTransparency}
@@ -108,7 +118,6 @@ function Esp() {
 					/>
 				</BrightSlider>
 
-				{/* Fill label */}
 				<Canvas size={px(73, 49)} position={px(205, 0)}>
 					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
 					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
@@ -138,7 +147,7 @@ function Esp() {
 					position={px(0, 0)}
 					radius={8}
 					color={theme.button.background}
-					accentColor={accent}
+					accentColor={outlineAccent}
 					borderEnabled={theme.button.outlined}
 					borderColor={theme.button.foreground}
 					transparency={theme.button.backgroundTransparency}
@@ -156,7 +165,6 @@ function Esp() {
 					/>
 				</BrightSlider>
 
-				{/* Outline label */}
 				<Canvas size={px(73, 49)} position={px(205, 0)}>
 					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
 					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
@@ -164,6 +172,56 @@ function Esp() {
 						Text="Outline"
 						Font="GothamBold"
 						TextSize={13}
+						TextColor3={theme.button.foreground}
+						TextTransparency={theme.button.foregroundTransparency}
+						TextXAlignment="Center"
+						TextYAlignment="Center"
+						Size={scale(1, 1)}
+						BackgroundTransparency={1}
+					/>
+				</Canvas>
+			</Canvas>
+
+			{/* Hue slider */}
+			<Canvas size={px(278, 49)} position={px(24, 298)}>
+				<BrightSlider
+					min={0}
+					max={360}
+					initialValue={hueJob.value}
+					onValueChanged={(v) => {
+						setHueValue(v);
+						setHueColor(hueToColor(v));
+					}}
+					onRelease={(v) => dispatch(setJobValue("espHue", math.round(v)))}
+					size={px(193, 49)}
+					position={px(0, 0)}
+					radius={8}
+					color={theme.button.background}
+					accentColor={hueAccent}
+					borderEnabled={theme.button.outlined}
+					borderColor={theme.button.foreground}
+					transparency={theme.button.backgroundTransparency}
+				>
+					<textlabel
+						Font="GothamBold"
+						Text={hueValue.map((v) => `${math.round(v)}°`)}
+						TextSize={15}
+						TextColor3={theme.button.foreground}
+						TextTransparency={theme.button.foregroundTransparency}
+						TextXAlignment="Center"
+						TextYAlignment="Center"
+						Size={scale(1, 1)}
+						BackgroundTransparency={1}
+					/>
+				</BrightSlider>
+
+				<Canvas size={px(73, 49)} position={px(205, 0)}>
+					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
+					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
+					<textlabel
+						Text="Hue"
+						Font="GothamBold"
+						TextSize={15}
 						TextColor3={theme.button.foreground}
 						TextTransparency={theme.button.foregroundTransparency}
 						TextXAlignment="Center"
@@ -186,7 +244,7 @@ function Esp() {
 					}
 				}}
 				size={px(278, 49)}
-				position={px(24, 302)}
+				position={px(24, 363)}
 				radius={12}
 				color={toggleBackground}
 				borderEnabled={theme.button.outlined}

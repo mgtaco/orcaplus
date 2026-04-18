@@ -3,10 +3,13 @@ import { getStore, onJobChange } from "jobs/helpers/job-store";
 
 const LOCAL_PLAYER = Players.LocalPlayer;
 const HIGHLIGHT_NAME = "OrcaESP";
-const ESP_COLOR = Color3.fromRGB(255, 100, 100);
 
 let espConnection: RBXScriptConnection | undefined;
 const highlights = new Map<Model, Highlight>();
+
+function hueToColor(hue: number): Color3 {
+	return Color3.fromHSV(hue / 360, 1, 1);
+}
 
 function getLivingCharacter(player: Player) {
 	const character = player.Character;
@@ -25,7 +28,14 @@ function applyTransparencies(highlight: Highlight, fillOpacity: number, outlineO
 	highlight.OutlineTransparency = opacityToTransparency(outlineOpacity);
 }
 
-function addHighlight(character: Model, fillOpacity: number, outlineOpacity: number) {
+function applyColorToAll(color: Color3) {
+	highlights.forEach((highlight) => {
+		highlight.FillColor = color;
+		highlight.OutlineColor = color;
+	});
+}
+
+function addHighlight(character: Model, fillOpacity: number, outlineOpacity: number, color: Color3) {
 	let highlight = highlights.get(character);
 	if (!highlight) {
 		const existing = character.FindFirstChild(HIGHLIGHT_NAME);
@@ -35,13 +45,13 @@ function addHighlight(character: Model, fillOpacity: number, outlineOpacity: num
 			highlight = new Instance("Highlight");
 			highlight.Name = HIGHLIGHT_NAME;
 			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop;
-			highlight.FillColor = ESP_COLOR;
-			highlight.OutlineColor = ESP_COLOR;
 			highlight.Adornee = character;
 			highlight.Parent = character;
 		}
 		highlights.set(character, highlight);
 	}
+	highlight.FillColor = color;
+	highlight.OutlineColor = color;
 	applyTransparencies(highlight, fillOpacity, outlineOpacity);
 }
 
@@ -56,7 +66,7 @@ function clearHighlights() {
 	highlights.forEach((_, character) => removeHighlight(character));
 }
 
-function syncHighlights(fillOpacity: number, outlineOpacity: number) {
+function syncHighlights(fillOpacity: number, outlineOpacity: number, color: Color3) {
 	const seen = new Set<Model>();
 
 	for (const player of Players.GetPlayers()) {
@@ -64,7 +74,7 @@ function syncHighlights(fillOpacity: number, outlineOpacity: number) {
 		const character = getLivingCharacter(player);
 		if (character) {
 			seen.add(character);
-			addHighlight(character, fillOpacity, outlineOpacity);
+			addHighlight(character, fillOpacity, outlineOpacity, color);
 		}
 	}
 
@@ -75,12 +85,11 @@ function syncHighlights(fillOpacity: number, outlineOpacity: number) {
 	});
 }
 
-function startESP(fillOpacity: number, outlineOpacity: number) {
+function startESP(fillOpacity: number, outlineOpacity: number, color: Color3) {
 	if (espConnection) return;
-	syncHighlights(fillOpacity, outlineOpacity);
+	syncHighlights(fillOpacity, outlineOpacity, color);
 	espConnection = RunService.Heartbeat.Connect(() => {
-		// re-read from highlights map to keep transparencies current as values may change
-		syncHighlights(fillOpacity, outlineOpacity);
+		syncHighlights(fillOpacity, outlineOpacity, color);
 	});
 }
 
@@ -95,14 +104,18 @@ function stopESP() {
 async function main() {
 	const store = await getStore();
 
-	const getOpacities = () => {
-		const state = store.getState().jobs;
-		return { fill: state.espFill.value, outline: state.espOutline.value };
+	const getState = () => {
+		const jobs = store.getState().jobs;
+		return {
+			fill: jobs.espFill.value,
+			outline: jobs.espOutline.value,
+			color: hueToColor(jobs.espHue.value),
+		};
 	};
 
 	if (store.getState().jobs.esp.active) {
-		const { fill, outline } = getOpacities();
-		startESP(fill, outline);
+		const { fill, outline, color } = getState();
+		startESP(fill, outline, color);
 	}
 
 	Players.PlayerRemoving.Connect((player) => {
@@ -113,27 +126,36 @@ async function main() {
 
 	await onJobChange("esp", (job) => {
 		if (job.active) {
-			const { fill, outline } = getOpacities();
-			startESP(fill, outline);
+			const { fill, outline, color } = getState();
+			startESP(fill, outline, color);
 		} else {
 			stopESP();
 		}
 	});
 
-	// Restart the loop when fill or outline changes so the closure picks up new values
 	await onJobChange("espFill", (job) => {
 		if (store.getState().jobs.esp.active) {
 			stopESP();
-			const outline = store.getState().jobs.espOutline.value;
-			startESP(job.value, outline);
+			const { outline, color } = getState();
+			startESP(job.value, outline, color);
 		}
 	});
 
 	await onJobChange("espOutline", (job) => {
 		if (store.getState().jobs.esp.active) {
 			stopESP();
-			const fill = store.getState().jobs.espFill.value;
-			startESP(fill, job.value);
+			const { fill, color } = getState();
+			startESP(fill, job.value, color);
+		}
+	});
+
+	await onJobChange("espHue", (job) => {
+		const color = hueToColor(job.value);
+		applyColorToAll(color);
+		if (store.getState().jobs.esp.active) {
+			stopESP();
+			const { fill, outline } = getState();
+			startESP(fill, outline, color);
 		}
 	});
 }

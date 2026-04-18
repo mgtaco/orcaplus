@@ -12,20 +12,6 @@ const store = configureStore();
 setStore(store);
 
 /**
- * Mounts the app and retrieve the UI instance.
- */
-async function mount() {
-	const container = Make("Folder", {});
-	Roact.mount(
-		<Provider store={store}>
-			<App />
-		</Provider>,
-		container,
-	);
-	return container.WaitForChild(1) as ScreenGui;
-}
-
-/**
  * Renders the app to the screen. Protects it if possible.
  * TODO: Roact portals are a better way to do this?
  */
@@ -45,20 +31,41 @@ function render(app: ScreenGui) {
 }
 
 async function main() {
-	if (getgenv && "_ORCA_IS_LOADED" in getgenv()) {
-		throw "Orca is already loaded!";
+	if (getgenv) {
+		const g = getgenv() as Record<string, unknown>;
+
+		// Clean up any previous instance before remounting
+		if (g._ORCA_TREE !== undefined) {
+			pcall(() => Roact.unmount(g._ORCA_TREE as Roact.Tree));
+			g._ORCA_TREE = undefined;
+		}
+		if (g._ORCA_APP !== undefined) {
+			pcall(() => (g._ORCA_APP as ScreenGui).Destroy());
+			g._ORCA_APP = undefined;
+		}
+		g._ORCA_IS_LOADED = undefined;
 	}
 
-	const app = await mount();
+	const container = Make("Folder", {});
+	const tree = Roact.mount(
+		<Provider store={store}>
+			<App />
+		</Provider>,
+		container,
+	);
+	const app = container.WaitForChild(1) as ScreenGui;
 	render(app);
+
+	if (getgenv) {
+		const g = getgenv() as Record<string, unknown>;
+		g._ORCA_IS_LOADED = true;
+		g._ORCA_TREE = tree;
+		g._ORCA_APP = app;
+	}
 
 	// If 3 seconds passed since the game started, show the dashboard
 	if (time() > 3) {
 		task.defer(() => store.dispatch(toggleDashboard()));
-	}
-
-	if (getgenv) {
-		getgenv()._ORCA_IS_LOADED = true;
 	}
 }
 
