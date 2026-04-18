@@ -3444,9 +3444,11 @@ local getStore = _job_store.getStore\
 local onJobChange = _job_store.onJobChange\
 local LOCAL_PLAYER = Players.LocalPlayer\
 local HIGHLIGHT_NAME = \"OrcaESP\"\
-local ESP_COLOR = Color3.fromRGB(255, 100, 100)\
 local espConnection\
 local highlights = {}\
+local function hueToColor(hue)\
+\9return Color3.fromHSV(hue / 360, 1, 1)\
+end\
 local function getLivingCharacter(player)\
 \9local character = player.Character\
 \9if not character then\
@@ -3465,7 +3467,18 @@ local function applyTransparencies(highlight, fillOpacity, outlineOpacity)\
 \9highlight.FillTransparency = opacityToTransparency(fillOpacity)\
 \9highlight.OutlineTransparency = opacityToTransparency(outlineOpacity)\
 end\
-local function addHighlight(character, fillOpacity, outlineOpacity)\
+local function applyColorToAll(color)\
+\9local _arg0 = function(highlight)\
+\9\9highlight.FillColor = color\
+\9\9highlight.OutlineColor = color\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(highlights) do\
+\9\9_arg0(_v, _k, highlights)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+end\
+local function addHighlight(character, fillOpacity, outlineOpacity, color)\
 \9local highlight = highlights[character]\
 \9if not highlight then\
 \9\9local existing = character:FindFirstChild(HIGHLIGHT_NAME)\
@@ -3479,8 +3492,6 @@ local function addHighlight(character, fillOpacity, outlineOpacity)\
 \9\9\9highlight = Instance.new(\"Highlight\")\
 \9\9\9highlight.Name = HIGHLIGHT_NAME\
 \9\9\9highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop\
-\9\9\9highlight.FillColor = ESP_COLOR\
-\9\9\9highlight.OutlineColor = ESP_COLOR\
 \9\9\9highlight.Adornee = character\
 \9\9\9highlight.Parent = character\
 \9\9end\
@@ -3489,6 +3500,8 @@ local function addHighlight(character, fillOpacity, outlineOpacity)\
 \9\9highlights[character] = _highlight\
 \9\9-- ▲ Map.set ▲\
 \9end\
+\9highlight.FillColor = color\
+\9highlight.OutlineColor = color\
 \9applyTransparencies(highlight, fillOpacity, outlineOpacity)\
 end\
 local function removeHighlight(character)\
@@ -3511,7 +3524,7 @@ local function clearHighlights()\
 \9end\
 \9-- ▲ ReadonlyMap.forEach ▲\
 end\
-local function syncHighlights(fillOpacity, outlineOpacity)\
+local function syncHighlights(fillOpacity, outlineOpacity, color)\
 \9local seen = {}\
 \9for _, player in ipairs(Players:GetPlayers()) do\
 \9\9if player == LOCAL_PLAYER then\
@@ -3522,7 +3535,7 @@ local function syncHighlights(fillOpacity, outlineOpacity)\
 \9\9\9-- ▼ Set.add ▼\
 \9\9\9seen[character] = true\
 \9\9\9-- ▲ Set.add ▲\
-\9\9\9addHighlight(character, fillOpacity, outlineOpacity)\
+\9\9\9addHighlight(character, fillOpacity, outlineOpacity, color)\
 \9\9end\
 \9end\
 \9local _arg0 = function(_, character)\
@@ -3536,13 +3549,13 @@ local function syncHighlights(fillOpacity, outlineOpacity)\
 \9end\
 \9-- ▲ ReadonlyMap.forEach ▲\
 end\
-local function startESP(fillOpacity, outlineOpacity)\
+local function startESP(fillOpacity, outlineOpacity, color)\
 \9if espConnection then\
 \9\9return nil\
 \9end\
-\9syncHighlights(fillOpacity, outlineOpacity)\
+\9syncHighlights(fillOpacity, outlineOpacity, color)\
 \9espConnection = RunService.Heartbeat:Connect(function()\
-\9\9syncHighlights(fillOpacity, outlineOpacity)\
+\9\9syncHighlights(fillOpacity, outlineOpacity, color)\
 \9end)\
 end\
 local function stopESP()\
@@ -3554,18 +3567,20 @@ local function stopESP()\
 end\
 local main = TS.async(function()\
 \9local store = TS.await(getStore())\
-\9local getOpacities = function()\
-\9\9local state = store:getState().jobs\
+\9local getState = function()\
+\9\9local jobs = store:getState().jobs\
 \9\9return {\
-\9\9\9fill = state.espFill.value,\
-\9\9\9outline = state.espOutline.value,\
+\9\9\9fill = jobs.espFill.value,\
+\9\9\9outline = jobs.espOutline.value,\
+\9\9\9color = hueToColor(jobs.espHue.value),\
 \9\9}\
 \9end\
 \9if store:getState().jobs.esp.active then\
-\9\9local _binding = getOpacities()\
+\9\9local _binding = getState()\
 \9\9local fill = _binding.fill\
 \9\9local outline = _binding.outline\
-\9\9startESP(fill, outline)\
+\9\9local color = _binding.color\
+\9\9startESP(fill, outline, color)\
 \9end\
 \9Players.PlayerRemoving:Connect(function(player)\
 \9\9if player ~= LOCAL_PLAYER and player.Character then\
@@ -3574,10 +3589,11 @@ local main = TS.async(function()\
 \9end)\
 \9TS.await(onJobChange(\"esp\", function(job)\
 \9\9if job.active then\
-\9\9\9local _binding = getOpacities()\
+\9\9\9local _binding = getState()\
 \9\9\9local fill = _binding.fill\
 \9\9\9local outline = _binding.outline\
-\9\9\9startESP(fill, outline)\
+\9\9\9local color = _binding.color\
+\9\9\9startESP(fill, outline, color)\
 \9\9else\
 \9\9\9stopESP()\
 \9\9end\
@@ -3585,15 +3601,30 @@ local main = TS.async(function()\
 \9TS.await(onJobChange(\"espFill\", function(job)\
 \9\9if store:getState().jobs.esp.active then\
 \9\9\9stopESP()\
-\9\9\9local outline = store:getState().jobs.espOutline.value\
-\9\9\9startESP(job.value, outline)\
+\9\9\9local _binding = getState()\
+\9\9\9local outline = _binding.outline\
+\9\9\9local color = _binding.color\
+\9\9\9startESP(job.value, outline, color)\
 \9\9end\
 \9end))\
 \9TS.await(onJobChange(\"espOutline\", function(job)\
 \9\9if store:getState().jobs.esp.active then\
 \9\9\9stopESP()\
-\9\9\9local fill = store:getState().jobs.espFill.value\
-\9\9\9startESP(fill, job.value)\
+\9\9\9local _binding = getState()\
+\9\9\9local fill = _binding.fill\
+\9\9\9local color = _binding.color\
+\9\9\9startESP(fill, job.value, color)\
+\9\9end\
+\9end))\
+\9TS.await(onJobChange(\"espHue\", function(job)\
+\9\9local color = hueToColor(job.value)\
+\9\9applyColorToAll(color)\
+\9\9if store:getState().jobs.esp.active then\
+\9\9\9stopESP()\
+\9\9\9local _binding = getState()\
+\9\9\9local fill = _binding.fill\
+\9\9\9local outline = _binding.outline\
+\9\9\9startESP(fill, outline, color)\
 \9\9end\
 \9end))\
 end)\
@@ -4066,15 +4097,6 @@ local configureStore = TS.import(script, script.Parent, \"store\", \"store\").co
 local App = TS.import(script, script.Parent, \"App\").default\
 local store = configureStore()\
 setStore(store)\
-local mount = TS.async(function()\
-\9local container = Make(\"Folder\", {})\
-\9Roact.mount(Roact.createElement(Provider, {\
-\9\9store = store,\
-\9}, {\
-\9\9Roact.createElement(App),\
-\9}), container)\
-\9return container:WaitForChild(1)\
-end)\
 local function render(app)\
 \9local protect = syn and syn.protect_gui or protect_gui\
 \9if protect then\
@@ -4089,18 +4111,40 @@ local function render(app)\
 \9end\
 end\
 local main = TS.async(function()\
-\9if getgenv and getgenv()._ORCA_IS_LOADED ~= nil then\
-\9\9error(\"Orca is already loaded!\")\
+\9if getgenv then\
+\9\9local g = getgenv()\
+\9\9if g._ORCA_TREE ~= nil then\
+\9\9\9pcall(function()\
+\9\9\9\9return Roact.unmount(g._ORCA_TREE)\
+\9\9\9end)\
+\9\9\9g._ORCA_TREE = nil\
+\9\9end\
+\9\9if g._ORCA_APP ~= nil then\
+\9\9\9pcall(function()\
+\9\9\9\9return (g._ORCA_APP):Destroy()\
+\9\9\9end)\
+\9\9\9g._ORCA_APP = nil\
+\9\9end\
+\9\9g._ORCA_IS_LOADED = nil\
 \9end\
-\9local app = TS.await(mount())\
+\9local container = Make(\"Folder\", {})\
+\9local tree = Roact.mount(Roact.createElement(Provider, {\
+\9\9store = store,\
+\9}, {\
+\9\9Roact.createElement(App),\
+\9}), container)\
+\9local app = container:WaitForChild(1)\
 \9render(app)\
+\9if getgenv then\
+\9\9local g = getgenv()\
+\9\9g._ORCA_IS_LOADED = true\
+\9\9g._ORCA_TREE = tree\
+\9\9g._ORCA_APP = app\
+\9end\
 \9if time() > 3 then\
 \9\9task.defer(function()\
 \9\9\9return store:dispatch(toggleDashboard())\
 \9\9end)\
-\9end\
-\9if getgenv then\
-\9\9getgenv()._ORCA_IS_LOADED = true\
 \9end\
 end)\
 main():catch(function(err)\
@@ -4429,6 +4473,10 @@ local initialState = {\
 \9},\
 \9espOutline = {\
 \9\9value = 100,\
+\9\9active = false,\
+\9},\
+\9espHue = {\
+\9\9value = 0,\
 \9\9active = false,\
 \9},\
 \9teleport = {\
@@ -7137,9 +7185,13 @@ local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent, \"st
 local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
 local px = _udim2.px\
 local scale = _udim2.scale\
+local function hueToColor(hue)\
+\9return Color3.fromHSV(hue / 360, 1, 1)\
+end\
 local function Esp()\
 \9local dispatch = useAppDispatch()\
 \9local theme = useTheme(\"apps\").players\
+\9local profileHighlight = useTheme(\"home\").profile.highlight\
 \9local active = useAppSelector(function(state)\
 \9\9return state.jobs.esp.active\
 \9end)\
@@ -7148,6 +7200,9 @@ local function Esp()\
 \9end)\
 \9local outlineJob = useAppSelector(function(state)\
 \9\9return state.jobs.espOutline\
+\9end)\
+\9local hueJob = useAppSelector(function(state)\
+\9\9return state.jobs.espHue\
 \9end)\
 \9local _binding = useState(false)\
 \9local hovered = _binding[1]\
@@ -7158,16 +7213,24 @@ local function Esp()\
 \9local _binding_2 = useBinding(outlineJob.value)\
 \9local outlineValue = _binding_2[1]\
 \9local setOutlineValue = _binding_2[2]\
-\9local accent = theme.highlight.esp\
+\9local _binding_3 = useBinding(hueJob.value)\
+\9local hueValue = _binding_3[1]\
+\9local setHueValue = _binding_3[2]\
+\9local _binding_4 = useState(hueToColor(hueJob.value))\
+\9local hueColor = _binding_4[1]\
+\9local setHueColor = _binding_4[2]\
+\9local fillAccent = profileHighlight.flight\
+\9local outlineAccent = profileHighlight.walkSpeed\
+\9local hueAccent = profileHighlight.jumpHeight\
 \9local _result\
 \9if active then\
-\9\9_result = accent\
+\9\9_result = hueColor\
 \9else\
 \9\9local _result_1\
 \9\9if hovered then\
 \9\9\9local _condition = theme.button.backgroundHovered\
 \9\9\9if _condition == nil then\
-\9\9\9\9_condition = theme.button.background:Lerp(accent, 0.1)\
+\9\9\9\9_condition = theme.button.background:Lerp(hueColor, 0.1)\
 \9\9\9end\
 \9\9\9_result_1 = _condition\
 \9\9else\
@@ -7182,7 +7245,7 @@ local function Esp()\
 \9\9index = 2,\
 \9\9page = DashboardPage.Apps,\
 \9\9theme = theme,\
-\9\9size = px(326, 376),\
+\9\9size = px(326, 437),\
 \9\9position = UDim2.new(0, 374, 1, 0),\
 \9}\
 \9local _children = {\
@@ -7196,55 +7259,68 @@ local function Esp()\
 \9\9\9Position = px(24, 24),\
 \9\9\9BackgroundTransparency = 1,\
 \9\9}),\
-\9\9Roact.createElement(Canvas, {\
-\9\9\9size = px(278, 100),\
-\9\9\9position = px(24, 60),\
-\9\9}, {\
-\9\9\9Roact.createElement(Fill, {\
-\9\9\9\9color = theme.button.background,\
-\9\9\9\9radius = 16,\
-\9\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9\9}),\
-\9\9\9Roact.createElement(Border, {\
-\9\9\9\9color = theme.foreground,\
-\9\9\9\9radius = 16,\
-\9\9\9\9transparency = 0.9,\
-\9\9\9}),\
-\9\9\9Roact.createElement(Canvas, {\
-\9\9\9\9size = px(80, 68),\
-\9\9\9\9position = px(99, 16),\
-\9\9\9}, {\
-\9\9\9\9Roact.createElement(Fill, {\
-\9\9\9\9\9color = accent,\
-\9\9\9\9\9radius = 14,\
-\9\9\9\9\9transparency = fillValue:map(function(v)\
-\9\9\9\9\9\9return 1 - v / 100\
-\9\9\9\9\9end),\
-\9\9\9\9}),\
-\9\9\9\9Roact.createElement(Border, {\
-\9\9\9\9\9color = accent,\
-\9\9\9\9\9radius = 14,\
-\9\9\9\9\9transparency = outlineValue:map(function(v)\
-\9\9\9\9\9\9return 1 - v / 100\
-\9\9\9\9\9end),\
-\9\9\9\9}),\
-\9\9\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9\9\9Text = \"TARGET\",\
-\9\9\9\9\9Font = \"GothamBlack\",\
-\9\9\9\9\9TextSize = 13,\
-\9\9\9\9\9TextColor3 = theme.foreground,\
-\9\9\9\9\9Size = scale(1, 1),\
-\9\9\9\9\9BackgroundTransparency = 1,\
-\9\9\9\9}),\
-\9\9\9}),\
-\9\9}),\
 \9}\
 \9local _length = #_children\
 \9local _attributes_1 = {\
+\9\9size = px(278, 100),\
+\9\9position = px(24, 60),\
+\9}\
+\9local _children_1 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 16,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_1 = #_children_1\
+\9local _child = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 16,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child then\
+\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
+\9\9\9_children_1[_length_1 + 1] = _child\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child) do\
+\9\9\9\9_children_1[_length_1 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_1 = #_children_1\
+\9_children_1[_length_1 + 1] = Roact.createElement(Canvas, {\
+\9\9size = px(80, 68),\
+\9\9position = px(99, 16),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = hueColor,\
+\9\9\9radius = 14,\
+\9\9\9transparency = fillValue:map(function(v)\
+\9\9\9\9return 1 - v / 100\
+\9\9\9end),\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = hueColor,\
+\9\9\9radius = 14,\
+\9\9\9transparency = outlineValue:map(function(v)\
+\9\9\9\9return 1 - v / 100\
+\9\9\9end),\
+\9\9}),\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"TARGET\",\
+\9\9\9Font = \"GothamBlack\",\
+\9\9\9TextSize = 13,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9}),\
+\9})\
+\9_children[_length + 1] = Roact.createElement(Canvas, _attributes_1, _children_1)\
+\9local _attributes_2 = {\
 \9\9size = px(278, 49),\
 \9\9position = px(24, 176),\
 \9}\
-\9local _children_1 = {\
+\9local _children_2 = {\
 \9\9Roact.createElement(BrightSlider, {\
 \9\9\9min = 0,\
 \9\9\9max = 100,\
@@ -7257,7 +7333,7 @@ local function Esp()\
 \9\9\9position = px(0, 0),\
 \9\9\9radius = 8,\
 \9\9\9color = theme.button.background,\
-\9\9\9accentColor = accent,\
+\9\9\9accentColor = fillAccent,\
 \9\9\9borderEnabled = theme.button.outlined,\
 \9\9\9borderColor = theme.button.foreground,\
 \9\9\9transparency = theme.button.backgroundTransparency,\
@@ -7277,35 +7353,35 @@ local function Esp()\
 \9\9\9}),\
 \9\9}),\
 \9}\
-\9local _length_1 = #_children_1\
-\9local _attributes_2 = {\
+\9local _length_2 = #_children_2\
+\9local _attributes_3 = {\
 \9\9size = px(73, 49),\
 \9\9position = px(205, 0),\
 \9}\
-\9local _children_2 = {\
+\9local _children_3 = {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = theme.button.background,\
 \9\9\9radius = 8,\
 \9\9\9transparency = theme.button.backgroundTransparency,\
 \9\9}),\
 \9}\
-\9local _length_2 = #_children_2\
-\9local _child = theme.button.outlined and Roact.createElement(Border, {\
+\9local _length_3 = #_children_3\
+\9local _child_1 = theme.button.outlined and Roact.createElement(Border, {\
 \9\9color = theme.button.foreground,\
 \9\9radius = 8,\
 \9\9transparency = 0.8,\
 \9})\
-\9if _child then\
-\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
-\9\9\9_children_2[_length_2 + 1] = _child\
+\9if _child_1 then\
+\9\9if _child_1.elements ~= nil or _child_1.props ~= nil and _child_1.component ~= nil then\
+\9\9\9_children_3[_length_3 + 1] = _child_1\
 \9\9else\
-\9\9\9for _k, _v in ipairs(_child) do\
-\9\9\9\9_children_2[_length_2 + _k] = _v\
+\9\9\9for _k, _v in ipairs(_child_1) do\
+\9\9\9\9_children_3[_length_3 + _k] = _v\
 \9\9\9end\
 \9\9end\
 \9end\
-\9_length_2 = #_children_2\
-\9_children_2[_length_2 + 1] = Roact.createElement(\"TextLabel\", {\
+\9_length_3 = #_children_3\
+\9_children_3[_length_3 + 1] = Roact.createElement(\"TextLabel\", {\
 \9\9Text = \"Fill\",\
 \9\9Font = \"GothamBold\",\
 \9\9TextSize = 15,\
@@ -7316,13 +7392,13 @@ local function Esp()\
 \9\9Size = scale(1, 1),\
 \9\9BackgroundTransparency = 1,\
 \9})\
-\9_children_1[_length_1 + 1] = Roact.createElement(Canvas, _attributes_2, _children_2)\
-\9_children[_length + 1] = Roact.createElement(Canvas, _attributes_1, _children_1)\
-\9local _attributes_3 = {\
+\9_children_2[_length_2 + 1] = Roact.createElement(Canvas, _attributes_3, _children_3)\
+\9_children[_length + 2] = Roact.createElement(Canvas, _attributes_2, _children_2)\
+\9local _attributes_4 = {\
 \9\9size = px(278, 49),\
 \9\9position = px(24, 237),\
 \9}\
-\9local _children_3 = {\
+\9local _children_4 = {\
 \9\9Roact.createElement(BrightSlider, {\
 \9\9\9min = 0,\
 \9\9\9max = 100,\
@@ -7335,7 +7411,7 @@ local function Esp()\
 \9\9\9position = px(0, 0),\
 \9\9\9radius = 8,\
 \9\9\9color = theme.button.background,\
-\9\9\9accentColor = accent,\
+\9\9\9accentColor = outlineAccent,\
 \9\9\9borderEnabled = theme.button.outlined,\
 \9\9\9borderColor = theme.button.foreground,\
 \9\9\9transparency = theme.button.backgroundTransparency,\
@@ -7355,35 +7431,35 @@ local function Esp()\
 \9\9\9}),\
 \9\9}),\
 \9}\
-\9local _length_3 = #_children_3\
-\9local _attributes_4 = {\
+\9local _length_4 = #_children_4\
+\9local _attributes_5 = {\
 \9\9size = px(73, 49),\
 \9\9position = px(205, 0),\
 \9}\
-\9local _children_4 = {\
+\9local _children_5 = {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = theme.button.background,\
 \9\9\9radius = 8,\
 \9\9\9transparency = theme.button.backgroundTransparency,\
 \9\9}),\
 \9}\
-\9local _length_4 = #_children_4\
-\9local _child_1 = theme.button.outlined and Roact.createElement(Border, {\
+\9local _length_5 = #_children_5\
+\9local _child_2 = theme.button.outlined and Roact.createElement(Border, {\
 \9\9color = theme.button.foreground,\
 \9\9radius = 8,\
 \9\9transparency = 0.8,\
 \9})\
-\9if _child_1 then\
-\9\9if _child_1.elements ~= nil or _child_1.props ~= nil and _child_1.component ~= nil then\
-\9\9\9_children_4[_length_4 + 1] = _child_1\
+\9if _child_2 then\
+\9\9if _child_2.elements ~= nil or _child_2.props ~= nil and _child_2.component ~= nil then\
+\9\9\9_children_5[_length_5 + 1] = _child_2\
 \9\9else\
-\9\9\9for _k, _v in ipairs(_child_1) do\
-\9\9\9\9_children_4[_length_4 + _k] = _v\
+\9\9\9for _k, _v in ipairs(_child_2) do\
+\9\9\9\9_children_5[_length_5 + _k] = _v\
 \9\9\9end\
 \9\9end\
 \9end\
-\9_length_4 = #_children_4\
-\9_children_4[_length_4 + 1] = Roact.createElement(\"TextLabel\", {\
+\9_length_5 = #_children_5\
+\9_children_5[_length_5 + 1] = Roact.createElement(\"TextLabel\", {\
 \9\9Text = \"Outline\",\
 \9\9Font = \"GothamBold\",\
 \9\9TextSize = 13,\
@@ -7394,9 +7470,90 @@ local function Esp()\
 \9\9Size = scale(1, 1),\
 \9\9BackgroundTransparency = 1,\
 \9})\
-\9_children_3[_length_3 + 1] = Roact.createElement(Canvas, _attributes_4, _children_4)\
-\9_children[_length + 2] = Roact.createElement(Canvas, _attributes_3, _children_3)\
-\9_children[_length + 3] = Roact.createElement(BrightButton, {\
+\9_children_4[_length_4 + 1] = Roact.createElement(Canvas, _attributes_5, _children_5)\
+\9_children[_length + 3] = Roact.createElement(Canvas, _attributes_4, _children_4)\
+\9local _attributes_6 = {\
+\9\9size = px(278, 49),\
+\9\9position = px(24, 298),\
+\9}\
+\9local _children_6 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 360,\
+\9\9\9initialValue = hueJob.value,\
+\9\9\9onValueChanged = function(v)\
+\9\9\9\9setHueValue(v)\
+\9\9\9\9setHueColor(hueToColor(v))\
+\9\9\9end,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espHue\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, 49),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = hueAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = hueValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"°\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_6 = #_children_6\
+\9local _attributes_7 = {\
+\9\9size = px(73, 49),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_7 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_7 = #_children_7\
+\9local _child_3 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_3 then\
+\9\9if _child_3.elements ~= nil or _child_3.props ~= nil and _child_3.component ~= nil then\
+\9\9\9_children_7[_length_7 + 1] = _child_3\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_3) do\
+\9\9\9\9_children_7[_length_7 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_7 = #_children_7\
+\9_children_7[_length_7 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Hue\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_6[_length_6 + 1] = Roact.createElement(Canvas, _attributes_7, _children_7)\
+\9_children[_length + 4] = Roact.createElement(Canvas, _attributes_6, _children_6)\
+\9_children[_length + 5] = Roact.createElement(BrightButton, {\
 \9\9onActivate = function()\
 \9\9\9return dispatch(setJobActive(\"esp\", not active))\
 \9\9end,\
@@ -7409,7 +7566,7 @@ local function Esp()\
 \9\9\9end\
 \9\9end,\
 \9\9size = px(278, 49),\
-\9\9position = px(24, 302),\
+\9\9position = px(24, 363),\
 \9\9radius = 12,\
 \9\9color = toggleBackground,\
 \9\9borderEnabled = theme.button.outlined,\
