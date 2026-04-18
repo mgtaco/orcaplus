@@ -4299,9 +4299,7 @@ autosave = TS.async(function(name, selector)\
 \9\9local state = selector(store:getState())\
 \9\9write(\"_orca/\" .. (name .. \".json\"), HttpService:JSONEncode(state))\
 \9end\
-\9setInterval(function()\
-\9\9return save\
-\9end, 60000)\
+\9setInterval(save, 60000)\
 \9Players.PlayerRemoving:Connect(function(player)\
 \9\9if player == Players.LocalPlayer then\
 \9\9\9save()\
@@ -4491,68 +4489,84 @@ newModule("options.reducer", "ModuleScript", "Orca.store.reducers.options.reduce
 local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
 local Rodux = TS.import(script, TS.getModule(script, \"@rbxts\", \"rodux\").src)\
 local persistentState = TS.import(script, script.Parent.Parent, \"persistent-state\").persistentState\
-local initialState = persistentState(\"options\", function(state)\
+local defaultShortcuts = {\
+\9toggleDashboard = Enum.KeyCode.K.Value,\
+}\
+local loaded = persistentState(\"options\", function(state)\
 \9return state.options\
 end, {\
 \9currentTheme = \"Sorbet\",\
 \9config = {\
 \9\9acrylicBlur = true,\
 \9},\
-\9shortcuts = {\
-\9\9toggleDashboard = Enum.KeyCode.K.Value,\
-\9\9toggleEsp = Enum.KeyCode.X.Value,\
-\9},\
+\9shortcuts = defaultShortcuts,\
 })\
+local _object = {}\
+for _k, _v in pairs(defaultShortcuts) do\
+\9_object[_k] = _v\
+end\
+local mergedShortcuts = _object\
+for k, v in pairs(loaded.shortcuts) do\
+\9if v ~= nil then\
+\9\9mergedShortcuts[k] = v\
+\9end\
+end\
+local _object_1 = {}\
+for _k, _v in pairs(loaded) do\
+\9_object_1[_k] = _v\
+end\
+_object_1.shortcuts = mergedShortcuts\
+local initialState = _object_1\
 local optionsReducer = Rodux.createReducer(initialState, {\
 \9[\"options/setConfig\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
 \9\9local _left = \"config\"\
-\9\9local _object_1 = {}\
+\9\9local _object_3 = {}\
 \9\9for _k, _v in pairs(state.config) do\
-\9\9\9_object_1[_k] = _v\
+\9\9\9_object_3[_k] = _v\
 \9\9end\
-\9\9_object_1[action.name] = action.active\
-\9\9_object[_left] = _object_1\
-\9\9return _object\
+\9\9_object_3[action.name] = action.active\
+\9\9_object_2[_left] = _object_3\
+\9\9return _object_2\
 \9end,\
 \9[\"options/setTheme\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
-\9\9_object.currentTheme = action.theme\
-\9\9return _object\
+\9\9_object_2.currentTheme = action.theme\
+\9\9return _object_2\
 \9end,\
 \9[\"options/setShortcut\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
 \9\9local _left = \"shortcuts\"\
-\9\9local _object_1 = {}\
+\9\9local _object_3 = {}\
 \9\9for _k, _v in pairs(state.shortcuts) do\
-\9\9\9_object_1[_k] = _v\
+\9\9\9_object_3[_k] = _v\
 \9\9end\
-\9\9_object_1[action.shortcut] = action.keycode\
-\9\9_object[_left] = _object_1\
-\9\9return _object\
+\9\9_object_3[action.shortcut] = action.keycode\
+\9\9_object_2[_left] = _object_3\
+\9\9return _object_2\
 \9end,\
 \9[\"options/removeShortcut\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
 \9\9local _left = \"shortcuts\"\
-\9\9local _object_1 = {}\
+\9\9local _object_3 = {}\
 \9\9for _k, _v in pairs(state.shortcuts) do\
-\9\9\9_object_1[_k] = _v\
+\9\9\9_object_3[_k] = _v\
 \9\9end\
-\9\9_object_1[action.shortcut] = nil\
-\9\9_object[_left] = _object_1\
-\9\9return _object\
+\9\9_object_3[action.shortcut] = nil\
+\9\9_object_2[_left] = _object_3\
+\9\9return _object_2\
 \9end,\
 })\
 return {\
