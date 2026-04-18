@@ -4,6 +4,14 @@
 
 ## 🚀 Quick start
 
+**Latest release:**
+```lua
+loadstring(
+  game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/latest.lua")
+)()
+```
+
+**Snapshot (most recent build):**
 ```lua
 loadstring(
   game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/snapshot.lua")
@@ -28,9 +36,12 @@ Press `K` to open or close Orca. A 1080p monitor or above is recommended.
   - **Kill** — Uses a tool handle to teleport them to the void.
   - **Spectate** — Third-person view of their character.
 
-- **Visuals** *(new)* — Enemy ESP panel.
+- **Visuals** — Enemy ESP panel.
   - **Fill / Outline sliders** — Adjust highlight opacity live (0–100%).
-  - **Enable / Disable ESP** — Toggle Highlight instances on all other players.
+  - **Hue slider** — Set the ESP color (0–360°).
+  - **Highlight** — Toggle colored highlight outlines on all players.
+  - **Names** — Toggle name tags above players.
+  - **Health** — Toggle health bars above players.
 
 ### 📰 Scripts
 
