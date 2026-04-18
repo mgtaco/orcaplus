@@ -5,9 +5,35 @@
 --
 -- Author: 0866
 -- License: MIT
--- Version: "1.1.1-dbg"
+-- Version: "1.2.0-dbg"
 -- GitHub: https://github.com/richie0866/orca
 --]]
+
+-- Persist this custom build across reconnects / server hops.
+--
+-- If your executor supports script.Source this happens automatically.
+-- Otherwise, add ONE line before running orca (e.g. in autoexec):
+--
+--   getgenv()._ORCA_RELOAD = 'loadstring(readfile("path/to/snapshot.lua"))()'
+--
+-- Orca will queue that string instead of fetching from GitHub.
+do
+	-- Only auto-set _ORCA_RELOAD when the user has not already specified one.
+	local g = type(getgenv) == "function" and getgenv() or nil
+	if g and not g._ORCA_RELOAD then
+		local ok, src = pcall(function() return script.Source end)
+		if ok and type(src) == "string" and #src > 1000 then
+			-- Source looks valid — save to disk and mark the reload path.
+			pcall(function()
+				if not isfolder("_orca") then
+					makefolder("_orca")
+				end
+				writefile("_orca/snapshot.lua", src)
+				g._ORCA_RELOAD = 'loadstring(readfile("_orca/snapshot.lua"))()'
+			end)
+		end
+	end
+end
 
 -- Runtime module
 
@@ -106,7 +132,7 @@ end
 ---@return table<string, any> environment
 local function newEnv(id)
 	return setmetatable({
-		VERSION = "1.1.1-dbg",
+		VERSION = "1.2.0-dbg",
 		script = instanceFromId[id],
 		require = function (module)
 			return requireModuleInternal(module, instanceFromId[id])
@@ -523,7 +549,9 @@ local function ActionButton(_param)\
 \9local hint = _param.hint\
 \9local theme = _param.theme\
 \9local image = _param.image\
+\9local label = _param.label\
 \9local position = _param.position\
+\9local size = _param.size\
 \9local canDeactivate = _param.canDeactivate\
 \9local dispatch = useAppDispatch()\
 \9local active = useAppSelector(function(state)\
@@ -554,7 +582,7 @@ local function ActionButton(_param)\
 \9end\
 \9local background = useSpring(_result, {})\
 \9local foreground = useSpring(active and theme.button.foregroundAccent and theme.button.foregroundAccent or theme.button.foreground, {})\
-\9return Roact.createElement(BrightButton, {\
+\9local _attributes = {\
 \9\9onActivate = function()\
 \9\9\9if active and canDeactivate then\
 \9\9\9\9dispatch(setJobActive(action, false))\
@@ -571,23 +599,47 @@ local function ActionButton(_param)\
 \9\9\9\9dispatch(clearHint())\
 \9\9\9end\
 \9\9end,\
-\9\9size = px(61, 49),\
-\9\9position = position,\
-\9\9radius = 8,\
-\9\9color = background,\
-\9\9borderEnabled = theme.button.outlined,\
-\9\9borderColor = foreground,\
-\9\9transparency = theme.button.backgroundTransparency,\
-\9}, {\
-\9\9Roact.createElement(\"ImageLabel\", {\
+\9}\
+\9local _condition = size\
+\9if _condition == nil then\
+\9\9_condition = px(61, 49)\
+\9end\
+\9_attributes.size = _condition\
+\9_attributes.position = position\
+\9_attributes.radius = 8\
+\9_attributes.color = background\
+\9_attributes.borderEnabled = theme.button.outlined\
+\9_attributes.borderColor = foreground\
+\9_attributes.transparency = theme.button.backgroundTransparency\
+\9local _result_1\
+\9if image ~= nil then\
+\9\9_result_1 = (Roact.createElement(\"ImageLabel\", {\
 \9\9\9Image = image,\
-\9\9\9ImageColor3 = foreground,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
 \9\9\9ImageTransparency = useSpring(active and 0 or (hovered and theme.button.foregroundTransparency - 0.25 or theme.button.foregroundTransparency), {}),\
-\9\9\9Size = px(36, 36),\
-\9\9\9Position = px(12, 6),\
+\9\9\9Size = UDim2.new(1, -16, 1, -10),\
+\9\9\9Position = UDim2.new(0, 8, 0, 5),\
 \9\9\9BackgroundTransparency = 1,\
-\9\9}),\
-\9})\
+\9\9}))\
+\9else\
+\9\9local _attributes_1 = {}\
+\9\9local _condition_1 = label\
+\9\9if _condition_1 == nil then\
+\9\9\9_condition_1 = \"\"\
+\9\9end\
+\9\9_attributes_1.Text = _condition_1\
+\9\9_attributes_1.Font = \"GothamBold\"\
+\9\9_attributes_1.TextSize = 15\
+\9\9_attributes_1.TextColor3 = foreground\
+\9\9_attributes_1.TextTransparency = useSpring(active and 0 or (hovered and theme.button.foregroundTransparency - 0.25 or theme.button.foregroundTransparency), {})\
+\9\9_attributes_1.Size = UDim2.new(1, 0, 1, 0)\
+\9\9_attributes_1.BackgroundTransparency = 1\
+\9\9_result_1 = (Roact.createElement(\"TextLabel\", _attributes_1))\
+\9end\
+\9local _children = {}\
+\9local _length = #_children\
+\9_children[_length + 1] = _result_1\
+\9return Roact.createElement(BrightButton, _attributes, _children)\
 end\
 local default = hooked(ActionButton)\
 return {\
@@ -3408,6 +3460,333 @@ return {\
 
 newInstance("players", "Folder", "Orca.jobs.players", "Orca.jobs")
 
+newModule("esp", "LocalScript", "Orca.jobs.players.esp", "Orca.jobs.players", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
+local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
+local Players = _services.Players\
+local RunService = _services.RunService\
+local _job_store = TS.import(script, script.Parent.Parent, \"helpers\", \"job-store\")\
+local getStore = _job_store.getStore\
+local onJobChange = _job_store.onJobChange\
+local LOCAL_PLAYER = Players.LocalPlayer\
+local HIGHLIGHT_NAME = \"OrcaESP\"\
+local NAMETAG_NAME = \"OrcaESPName\"\
+local HEALTHBAR_NAME = \"OrcaESPHealth\"\
+local espConnection\
+local highlights = {}\
+local nameTags = {}\
+local healthBars = {}\
+local function hueToColor(hue)\
+\9return Color3.fromHSV(hue / 360, 1, 1)\
+end\
+local function getLivingCharacter(player)\
+\9local character = player.Character\
+\9if not character then\
+\9\9return nil\
+\9end\
+\9local humanoid = character:FindFirstChildWhichIsA(\"Humanoid\")\
+\9if not humanoid or humanoid.Health <= 0 then\
+\9\9return nil\
+\9end\
+\9return character\
+end\
+local function opacityToTransparency(opacity)\
+\9return 1 - math.clamp(opacity, 0, 100) / 100\
+end\
+local function addHighlight(character, fillOpacity, outlineOpacity, color)\
+\9local highlight = highlights[character]\
+\9if not highlight then\
+\9\9local existing = character:FindFirstChild(HIGHLIGHT_NAME)\
+\9\9local _result = existing\
+\9\9if _result ~= nil then\
+\9\9\9_result = _result:IsA(\"Highlight\")\
+\9\9end\
+\9\9highlight = _result and existing or Instance.new(\"Highlight\")\
+\9\9highlight.Name = HIGHLIGHT_NAME\
+\9\9highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop\
+\9\9highlight.Adornee = character\
+\9\9highlight.Parent = character\
+\9\9local _highlight = highlight\
+\9\9-- ▼ Map.set ▼\
+\9\9highlights[character] = _highlight\
+\9\9-- ▲ Map.set ▲\
+\9end\
+\9highlight.FillColor = color\
+\9highlight.OutlineColor = color\
+\9highlight.FillTransparency = opacityToTransparency(fillOpacity)\
+\9highlight.OutlineTransparency = opacityToTransparency(outlineOpacity)\
+end\
+local function removeHighlight(character)\
+\9local h = highlights[character]\
+\9if not h then\
+\9\9return nil\
+\9end\
+\9h:Destroy()\
+\9-- ▼ Map.delete ▼\
+\9highlights[character] = nil\
+\9-- ▲ Map.delete ▲\
+end\
+local function applyColorToAll(color)\
+\9local _arg0 = function(h)\
+\9\9h.FillColor = color\
+\9\9h.OutlineColor = color\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(highlights) do\
+\9\9_arg0(_v, _k, highlights)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+end\
+local function addNameTag(character, player, color)\
+\9if nameTags[character] ~= nil then\
+\9\9local tag = nameTags[character];\
+\9\9(tag:FindFirstChildWhichIsA(\"TextLabel\")).TextColor3 = color\
+\9\9return nil\
+\9end\
+\9local head = character:FindFirstChild(\"Head\")\
+\9if not head then\
+\9\9return nil\
+\9end\
+\9local billboard = Instance.new(\"BillboardGui\")\
+\9billboard.Name = NAMETAG_NAME\
+\9billboard.Adornee = head\
+\9billboard.StudsOffset = Vector3.new(0, 2.2, 0)\
+\9billboard.Size = UDim2.new(0, 120, 0, 22)\
+\9billboard.AlwaysOnTop = true\
+\9billboard.ResetOnSpawn = false\
+\9local label = Instance.new(\"TextLabel\")\
+\9label.Text = player.DisplayName\
+\9label.Font = Enum.Font.GothamBold\
+\9label.TextSize = 13\
+\9label.TextColor3 = color\
+\9label.TextStrokeColor3 = Color3.new(0, 0, 0)\
+\9label.TextStrokeTransparency = 0.4\
+\9label.BackgroundTransparency = 1\
+\9label.Size = UDim2.new(1, 0, 1, 0)\
+\9label.Parent = billboard\
+\9billboard.Parent = head\
+\9-- ▼ Map.set ▼\
+\9nameTags[character] = billboard\
+\9-- ▲ Map.set ▲\
+end\
+local function removeNameTag(character)\
+\9local tag = nameTags[character]\
+\9if not tag then\
+\9\9return nil\
+\9end\
+\9tag:Destroy()\
+\9-- ▼ Map.delete ▼\
+\9nameTags[character] = nil\
+\9-- ▲ Map.delete ▲\
+end\
+local function addHealthBar(character, color)\
+\9local humanoid = character:FindFirstChildWhichIsA(\"Humanoid\")\
+\9if not humanoid then\
+\9\9return nil\
+\9end\
+\9if healthBars[character] ~= nil then\
+\9\9local _binding = healthBars[character]\
+\9\9local fill = _binding.fill\
+\9\9fill.BackgroundColor3 = color\
+\9\9fill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)\
+\9\9return nil\
+\9end\
+\9local head = character:FindFirstChild(\"Head\")\
+\9if not head then\
+\9\9return nil\
+\9end\
+\9local billboard = Instance.new(\"BillboardGui\")\
+\9billboard.Name = HEALTHBAR_NAME\
+\9billboard.Adornee = head\
+\9billboard.StudsOffset = Vector3.new(0, 3.1, 0)\
+\9billboard.Size = UDim2.new(0, 80, 0, 7)\
+\9billboard.AlwaysOnTop = true\
+\9billboard.ResetOnSpawn = false\
+\9local bg = Instance.new(\"Frame\")\
+\9bg.Size = UDim2.new(1, 0, 1, 0)\
+\9bg.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)\
+\9bg.BackgroundTransparency = 0.3\
+\9bg.BorderSizePixel = 0\
+\9bg.Parent = billboard\
+\9Instance.new(\"UICorner\").Parent = bg\
+\9local fill = Instance.new(\"Frame\")\
+\9fill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)\
+\9fill.BackgroundColor3 = color\
+\9fill.BackgroundTransparency = 0\
+\9fill.BorderSizePixel = 0\
+\9fill.Parent = bg\
+\9Instance.new(\"UICorner\").Parent = fill\
+\9billboard.Parent = head\
+\9local _arg1 = {\
+\9\9bar = billboard,\
+\9\9fill = fill,\
+\9}\
+\9-- ▼ Map.set ▼\
+\9healthBars[character] = _arg1\
+\9-- ▲ Map.set ▲\
+end\
+local function removeHealthBar(character)\
+\9local entry = healthBars[character]\
+\9if not entry then\
+\9\9return nil\
+\9end\
+\9entry.bar:Destroy()\
+\9-- ▼ Map.delete ▼\
+\9healthBars[character] = nil\
+\9-- ▲ Map.delete ▲\
+end\
+local function syncAll(state)\
+\9local seen = {}\
+\9for _, player in ipairs(Players:GetPlayers()) do\
+\9\9if player == LOCAL_PLAYER then\
+\9\9\9continue\
+\9\9end\
+\9\9local character = getLivingCharacter(player)\
+\9\9if not character then\
+\9\9\9continue\
+\9\9end\
+\9\9-- ▼ Set.add ▼\
+\9\9seen[character] = true\
+\9\9-- ▲ Set.add ▲\
+\9\9if state.highlight then\
+\9\9\9addHighlight(character, state.fill, state.outline, state.color)\
+\9\9else\
+\9\9\9removeHighlight(character)\
+\9\9end\
+\9\9if state.name then\
+\9\9\9addNameTag(character, player, state.color)\
+\9\9else\
+\9\9\9removeNameTag(character)\
+\9\9end\
+\9\9if state.health then\
+\9\9\9addHealthBar(character, state.color)\
+\9\9else\
+\9\9\9removeHealthBar(character)\
+\9\9end\
+\9end\
+\9local _arg0 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeHighlight(c)\
+\9\9end\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(highlights) do\
+\9\9_arg0(_v, _k, highlights)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_1 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeNameTag(c)\
+\9\9end\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(nameTags) do\
+\9\9_arg0_1(_v, _k, nameTags)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_2 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeHealthBar(c)\
+\9\9end\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(healthBars) do\
+\9\9_arg0_2(_v, _k, healthBars)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+end\
+local function clearAll()\
+\9local _arg0 = function(_, c)\
+\9\9return removeHighlight(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(highlights) do\
+\9\9_arg0(_v, _k, highlights)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_1 = function(_, c)\
+\9\9return removeNameTag(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(nameTags) do\
+\9\9_arg0_1(_v, _k, nameTags)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_2 = function(_, c)\
+\9\9return removeHealthBar(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(healthBars) do\
+\9\9_arg0_2(_v, _k, healthBars)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+end\
+local function startLoop(state)\
+\9if espConnection then\
+\9\9espConnection:Disconnect()\
+\9\9espConnection = nil\
+\9end\
+\9syncAll(state)\
+\9espConnection = RunService.Heartbeat:Connect(function()\
+\9\9return syncAll(state)\
+\9end)\
+end\
+local function stopLoop()\
+\9if espConnection then\
+\9\9espConnection:Disconnect()\
+\9\9espConnection = nil\
+\9end\
+end\
+local function anyActive(state)\
+\9return state.highlight or (state.name or state.health)\
+end\
+local main = TS.async(function()\
+\9local store = TS.await(getStore())\
+\9local getState = function()\
+\9\9local jobs = store:getState().jobs\
+\9\9return {\
+\9\9\9highlight = jobs.esp.active,\
+\9\9\9name = jobs.espName.active,\
+\9\9\9health = jobs.espHealth.active,\
+\9\9\9fill = jobs.espFill.value,\
+\9\9\9outline = jobs.espOutline.value,\
+\9\9\9color = hueToColor(jobs.espHue.value),\
+\9\9}\
+\9end\
+\9local refresh = function()\
+\9\9local state = getState()\
+\9\9if anyActive(state) then\
+\9\9\9startLoop(state)\
+\9\9else\
+\9\9\9stopLoop()\
+\9\9\9clearAll()\
+\9\9end\
+\9end\
+\9Players.PlayerRemoving:Connect(function(player)\
+\9\9if player ~= LOCAL_PLAYER and player.Character then\
+\9\9\9removeHighlight(player.Character)\
+\9\9\9removeNameTag(player.Character)\
+\9\9\9removeHealthBar(player.Character)\
+\9\9end\
+\9end)\
+\9if anyActive(getState()) then\
+\9\9refresh()\
+\9end\
+\9TS.await(onJobChange(\"esp\", refresh))\
+\9TS.await(onJobChange(\"espName\", refresh))\
+\9TS.await(onJobChange(\"espHealth\", refresh))\
+\9TS.await(onJobChange(\"espFill\", refresh))\
+\9TS.await(onJobChange(\"espOutline\", refresh))\
+\9TS.await(onJobChange(\"espHue\", function()\
+\9\9applyColorToAll(getState().color)\
+\9\9refresh()\
+\9end))\
+end)\
+main():catch(function(err)\
+\9warn(\"[esp-worker] \" .. tostring(err))\
+end)\
+", '@'.."Orca.jobs.players.esp")) setfenv(fn, newEnv("Orca.jobs.players.esp")) return fn() end)
+
 newModule("hide", "LocalScript", "Orca.jobs.players.hide", "Orca.jobs.players", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
 local Players = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).Players\
@@ -3798,9 +4177,9 @@ local onRejoin = TS.async(function()\
 \9\9TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)\
 \9end\
 end)\
+local BASE_URL = \"https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/\"\
+local RELOAD_URL = BASE_URL .. (string.sub(VERSION, 1, 1) == \"v\" and \"latest.lua\" or \"snapshot.lua\")\
 function queueExecution()\
-\9local isRelease = { string.match(VERSION, \"^.+%..+%..+$\") } ~= nil\
-\9local code = isRelease and 'loadstring(game:HttpGetAsync(\"https://raw.githubusercontent.com/richie0866/orca/master/public/latest.lua\"))()' or 'loadstring(game:HttpGetAsync(\"https://raw.githubusercontent.com/richie0866/orca/master/public/snapshot.lua\"))()'\
 \9local _result = syn\
 \9if _result ~= nil then\
 \9\9_result = _result.queue_on_teleport\
@@ -3809,10 +4188,11 @@ function queueExecution()\
 \9if _condition == nil then\
 \9\9_condition = queue_on_teleport\
 \9end\
-\9local _result_1 = _condition\
-\9if _result_1 ~= nil then\
-\9\9_result_1(code)\
+\9local queueFn = _condition\
+\9if not queueFn then\
+\9\9return nil\
 \9end\
+\9queueFn(\"loadstring(game:HttpGetAsync(\" .. (string.format(\"%q\", RELOAD_URL) .. \"))()\"))\
 end\
 local main = TS.async(function()\
 \9local store = TS.await(getStore())\
@@ -3871,15 +4251,6 @@ local configureStore = TS.import(script, script.Parent, \"store\", \"store\").co
 local App = TS.import(script, script.Parent, \"App\").default\
 local store = configureStore()\
 setStore(store)\
-local mount = TS.async(function()\
-\9local container = Make(\"Folder\", {})\
-\9Roact.mount(Roact.createElement(Provider, {\
-\9\9store = store,\
-\9}, {\
-\9\9Roact.createElement(App),\
-\9}), container)\
-\9return container:WaitForChild(1)\
-end)\
 local function render(app)\
 \9local protect = syn and syn.protect_gui or protect_gui\
 \9if protect then\
@@ -3894,18 +4265,40 @@ local function render(app)\
 \9end\
 end\
 local main = TS.async(function()\
-\9if getgenv and getgenv()._ORCA_IS_LOADED ~= nil then\
-\9\9error(\"Orca is already loaded!\")\
+\9if getgenv then\
+\9\9local g = getgenv()\
+\9\9if g._ORCA_TREE ~= nil then\
+\9\9\9pcall(function()\
+\9\9\9\9return Roact.unmount(g._ORCA_TREE)\
+\9\9\9end)\
+\9\9\9g._ORCA_TREE = nil\
+\9\9end\
+\9\9if g._ORCA_APP ~= nil then\
+\9\9\9pcall(function()\
+\9\9\9\9return (g._ORCA_APP):Destroy()\
+\9\9\9end)\
+\9\9\9g._ORCA_APP = nil\
+\9\9end\
+\9\9g._ORCA_IS_LOADED = nil\
 \9end\
-\9local app = TS.await(mount())\
+\9local container = Make(\"Folder\", {})\
+\9local tree = Roact.mount(Roact.createElement(Provider, {\
+\9\9store = store,\
+\9}, {\
+\9\9Roact.createElement(App),\
+\9}), container)\
+\9local app = container:WaitForChild(1)\
 \9render(app)\
+\9if getgenv then\
+\9\9local g = getgenv()\
+\9\9g._ORCA_IS_LOADED = true\
+\9\9g._ORCA_TREE = tree\
+\9\9g._ORCA_APP = app\
+\9end\
 \9if time() > 3 then\
 \9\9task.defer(function()\
 \9\9\9return store:dispatch(toggleDashboard())\
 \9\9end)\
-\9end\
-\9if getgenv then\
-\9\9getgenv()._ORCA_IS_LOADED = true\
 \9end\
 end)\
 main():catch(function(err)\
@@ -4053,9 +4446,7 @@ newModule("options.model", "ModuleScript", "Orca.store.models.options.model", "O
 
 newModule("persistent-state", "ModuleScript", "Orca.store.persistent-state", "Orca.store", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.include.RuntimeLib)\
-local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
-local HttpService = _services.HttpService\
-local Players = _services.Players\
+local HttpService = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).HttpService\
 local getStore = TS.import(script, script.Parent.Parent, \"jobs\", \"helpers\", \"job-store\").getStore\
 local setInterval = TS.import(script, script.Parent.Parent, \"utils\", \"timeout\").setInterval\
 if makefolder and not isfolder(\"_orca\") then\
@@ -4104,13 +4495,14 @@ autosave = TS.async(function(name, selector)\
 \9\9local state = selector(store:getState())\
 \9\9write(\"_orca/\" .. (name .. \".json\"), HttpService:JSONEncode(state))\
 \9end\
-\9setInterval(function()\
-\9\9return save\
-\9end, 60000)\
-\9Players.PlayerRemoving:Connect(function(player)\
-\9\9if player == Players.LocalPlayer then\
+\9setInterval(save, 60000)\
+\9local wasOpen = store:getState().dashboard.isOpen\
+\9store.changed:connect(function(newState)\
+\9\9local isOpen = newState.dashboard.isOpen\
+\9\9if wasOpen and not isOpen then\
 \9\9\9save()\
 \9\9end\
+\9\9wasOpen = isOpen\
 \9end)\
 end)\
 return {\
@@ -4227,6 +4619,27 @@ local initialState = {\
 \9freecam = {\
 \9\9active = false,\
 \9},\
+\9esp = {\
+\9\9active = false,\
+\9},\
+\9espName = {\
+\9\9active = false,\
+\9},\
+\9espHealth = {\
+\9\9active = false,\
+\9},\
+\9espFill = {\
+\9\9value = 10,\
+\9\9active = false,\
+\9},\
+\9espOutline = {\
+\9\9value = 100,\
+\9\9active = false,\
+\9},\
+\9espHue = {\
+\9\9value = 180,\
+\9\9active = false,\
+\9},\
 \9teleport = {\
 \9\9active = false,\
 \9},\
@@ -4285,67 +4698,84 @@ newModule("options.reducer", "ModuleScript", "Orca.store.reducers.options.reduce
 local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
 local Rodux = TS.import(script, TS.getModule(script, \"@rbxts\", \"rodux\").src)\
 local persistentState = TS.import(script, script.Parent.Parent, \"persistent-state\").persistentState\
-local initialState = persistentState(\"options\", function(state)\
+local defaultShortcuts = {\
+\9toggleDashboard = Enum.KeyCode.K.Value,\
+}\
+local loaded = persistentState(\"options\", function(state)\
 \9return state.options\
 end, {\
 \9currentTheme = \"Sorbet\",\
 \9config = {\
 \9\9acrylicBlur = true,\
 \9},\
-\9shortcuts = {\
-\9\9toggleDashboard = Enum.KeyCode.K.Value,\
-\9},\
+\9shortcuts = defaultShortcuts,\
 })\
+local _object = {}\
+for _k, _v in pairs(defaultShortcuts) do\
+\9_object[_k] = _v\
+end\
+local mergedShortcuts = _object\
+for k, v in pairs(loaded.shortcuts) do\
+\9if v ~= nil then\
+\9\9mergedShortcuts[k] = v\
+\9end\
+end\
+local _object_1 = {}\
+for _k, _v in pairs(loaded) do\
+\9_object_1[_k] = _v\
+end\
+_object_1.shortcuts = mergedShortcuts\
+local initialState = _object_1\
 local optionsReducer = Rodux.createReducer(initialState, {\
 \9[\"options/setConfig\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
 \9\9local _left = \"config\"\
-\9\9local _object_1 = {}\
+\9\9local _object_3 = {}\
 \9\9for _k, _v in pairs(state.config) do\
-\9\9\9_object_1[_k] = _v\
+\9\9\9_object_3[_k] = _v\
 \9\9end\
-\9\9_object_1[action.name] = action.active\
-\9\9_object[_left] = _object_1\
-\9\9return _object\
+\9\9_object_3[action.name] = action.active\
+\9\9_object_2[_left] = _object_3\
+\9\9return _object_2\
 \9end,\
 \9[\"options/setTheme\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
-\9\9_object.currentTheme = action.theme\
-\9\9return _object\
+\9\9_object_2.currentTheme = action.theme\
+\9\9return _object_2\
 \9end,\
 \9[\"options/setShortcut\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
 \9\9local _left = \"shortcuts\"\
-\9\9local _object_1 = {}\
+\9\9local _object_3 = {}\
 \9\9for _k, _v in pairs(state.shortcuts) do\
-\9\9\9_object_1[_k] = _v\
+\9\9\9_object_3[_k] = _v\
 \9\9end\
-\9\9_object_1[action.shortcut] = action.keycode\
-\9\9_object[_left] = _object_1\
-\9\9return _object\
+\9\9_object_3[action.shortcut] = action.keycode\
+\9\9_object_2[_left] = _object_3\
+\9\9return _object_2\
 \9end,\
 \9[\"options/removeShortcut\"] = function(state, action)\
-\9\9local _object = {}\
+\9\9local _object_2 = {}\
 \9\9for _k, _v in pairs(state) do\
-\9\9\9_object[_k] = _v\
+\9\9\9_object_2[_k] = _v\
 \9\9end\
 \9\9local _left = \"shortcuts\"\
-\9\9local _object_1 = {}\
+\9\9local _object_3 = {}\
 \9\9for _k, _v in pairs(state.shortcuts) do\
-\9\9\9_object_1[_k] = _v\
+\9\9\9_object_3[_k] = _v\
 \9\9end\
-\9\9_object_1[action.shortcut] = nil\
-\9\9_object[_left] = _object_1\
-\9\9return _object\
+\9\9_object_3[action.shortcut] = nil\
+\9\9_object_2[_left] = _object_3\
+\9\9return _object_2\
 \9end,\
 })\
 return {\
@@ -4557,6 +4987,9 @@ local darkTheme = {\
 \9\9\9\9backgroundTransparency = 0,\
 \9\9\9},\
 \9\9\9highlight = {\
+\9\9\9\9esp = hex(\"#ff6464\"),\
+\9\9\9\9espName = hex(\"#37CC95\"),\
+\9\9\9\9espHealth = hex(\"#EC423D\"),\
 \9\9\9\9teleport = hex(\"#37CC95\"),\
 \9\9\9\9hide = hex(\"#f09c2d\"),\
 \9\9\9\9kill = hex(\"#EC423D\"),\
@@ -4823,6 +5256,9 @@ for _k, _v in pairs(view) do\
 \9_object_14[_k] = _v\
 end\
 _object_14.highlight = {\
+\9esp = accent,\
+\9espName = accent,\
+\9espHealth = accent,\
 \9teleport = accent,\
 \9hide = accent,\
 \9kill = accent,\
@@ -5601,6 +6037,9 @@ _object_15.dropshadow = hex(\"#000000\")\
 _object_15.transparency = 0.7\
 _object_15.dropshadowTransparency = 0.65\
 _object_15.highlight = {\
+\9esp = accent,\
+\9espName = accent,\
+\9espHealth = accent,\
 \9teleport = accent,\
 \9hide = accent,\
 \9kill = accent,\
@@ -5897,6 +6336,9 @@ for _k, _v in pairs(view) do\
 \9_object_15[_k] = _v\
 end\
 _object_15.highlight = {\
+\9esp = redAccent,\
+\9espName = blueAccent,\
+\9espHealth = redAccent,\
 \9teleport = redAccent,\
 \9hide = blueAccent,\
 \9kill = redAccent,\
@@ -6863,6 +7305,7 @@ local pure = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\"
 local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
 local useScale = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-scale\").useScale\
 local scale = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\").scale\
+local Esp = TS.import(script, script.Parent, \"Esp\").default\
 local Players = TS.import(script, script.Parent, \"Players\").default\
 local function Apps()\
 \9local scaleFactor = useScale()\
@@ -6874,6 +7317,7 @@ local function Apps()\
 \9\9\9Scale = scaleFactor,\
 \9\9}),\
 \9\9Roact.createElement(Players),\
+\9\9Roact.createElement(Esp),\
 \9})\
 end\
 local default = pure(Apps)\
@@ -6881,6 +7325,411 @@ return {\
 \9default = default,\
 }\
 ", '@'.."Orca.views.Pages.Apps.Apps")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Apps")) return fn() end)
+
+newModule("Esp", "ModuleScript", "Orca.views.Pages.Apps.Esp", "Orca.views.Pages.Apps", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
+local _roact_hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out)\
+local hooked = _roact_hooked.hooked\
+local useBinding = _roact_hooked.useBinding\
+local useState = _roact_hooked.useState\
+local ActionButton = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"ActionButton\").default\
+local Border = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Border\").default\
+local BrightSlider = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"BrightSlider\").default\
+local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
+local Card = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Card\").default\
+local Fill = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Fill\").default\
+local _rodux_hooks = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\")\
+local useAppDispatch = _rodux_hooks.useAppDispatch\
+local useAppSelector = _rodux_hooks.useAppSelector\
+local useTheme = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-theme\").useTheme\
+local setJobValue = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"jobs.action\").setJobValue\
+local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"models\", \"dashboard.model\").DashboardPage\
+local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
+local px = _udim2.px\
+local scale = _udim2.scale\
+local function hueToColor(hue)\
+\9return Color3.fromHSV(hue / 360, 1, 1)\
+end\
+local function Esp()\
+\9local dispatch = useAppDispatch()\
+\9local theme = useTheme(\"apps\").players\
+\9local profileHighlight = useTheme(\"home\").profile.highlight\
+\9local fillJob = useAppSelector(function(state)\
+\9\9return state.jobs.espFill\
+\9end)\
+\9local outlineJob = useAppSelector(function(state)\
+\9\9return state.jobs.espOutline\
+\9end)\
+\9local hueJob = useAppSelector(function(state)\
+\9\9return state.jobs.espHue\
+\9end)\
+\9local _binding = useBinding(fillJob.value)\
+\9local fillValue = _binding[1]\
+\9local setFillValue = _binding[2]\
+\9local _binding_1 = useBinding(outlineJob.value)\
+\9local outlineValue = _binding_1[1]\
+\9local setOutlineValue = _binding_1[2]\
+\9local _binding_2 = useBinding(hueJob.value)\
+\9local hueValue = _binding_2[1]\
+\9local setHueValue = _binding_2[2]\
+\9local _binding_3 = useState(hueToColor(hueJob.value))\
+\9local hueColor = _binding_3[1]\
+\9local setHueColor = _binding_3[2]\
+\9local fillAccent = profileHighlight.flight\
+\9local outlineAccent = profileHighlight.walkSpeed\
+\9local hueAccent = profileHighlight.jumpHeight\
+\9local _attributes = {\
+\9\9index = 2,\
+\9\9page = DashboardPage.Apps,\
+\9\9theme = theme,\
+\9\9size = px(326, 437),\
+\9\9position = UDim2.new(0, 374, 1, 0),\
+\9}\
+\9local _children = {\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"Visuals\",\
+\9\9\9Font = \"GothamBlack\",\
+\9\9\9TextSize = 20,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9TextXAlignment = \"Left\",\
+\9\9\9TextYAlignment = \"Top\",\
+\9\9\9Position = px(24, 24),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9}),\
+\9}\
+\9local _length = #_children\
+\9local _attributes_1 = {\
+\9\9size = px(278, 100),\
+\9\9position = px(24, 60),\
+\9}\
+\9local _children_1 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 16,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_1 = #_children_1\
+\9local _child = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 16,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child then\
+\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
+\9\9\9_children_1[_length_1 + 1] = _child\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child) do\
+\9\9\9\9_children_1[_length_1 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_1 = #_children_1\
+\9_children_1[_length_1 + 1] = Roact.createElement(Canvas, {\
+\9\9size = px(80, 68),\
+\9\9position = px(99, 16),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = hueColor,\
+\9\9\9radius = 14,\
+\9\9\9transparency = fillValue:map(function(v)\
+\9\9\9\9return 1 - v / 100\
+\9\9\9end),\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = hueColor,\
+\9\9\9radius = 14,\
+\9\9\9transparency = outlineValue:map(function(v)\
+\9\9\9\9return 1 - v / 100\
+\9\9\9end),\
+\9\9}),\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"TARGET\",\
+\9\9\9Font = \"GothamBlack\",\
+\9\9\9TextSize = 13,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9}),\
+\9})\
+\9_children[_length + 1] = Roact.createElement(Canvas, _attributes_1, _children_1)\
+\9local _attributes_2 = {\
+\9\9size = px(278, 49),\
+\9\9position = px(24, 176),\
+\9}\
+\9local _children_2 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 100,\
+\9\9\9initialValue = fillJob.value,\
+\9\9\9onValueChanged = setFillValue,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espFill\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, 49),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = fillAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = fillValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"%\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_2 = #_children_2\
+\9local _attributes_3 = {\
+\9\9size = px(73, 49),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_3 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_3 = #_children_3\
+\9local _child_1 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_1 then\
+\9\9if _child_1.elements ~= nil or _child_1.props ~= nil and _child_1.component ~= nil then\
+\9\9\9_children_3[_length_3 + 1] = _child_1\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_1) do\
+\9\9\9\9_children_3[_length_3 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_3 = #_children_3\
+\9_children_3[_length_3 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Fill\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_2[_length_2 + 1] = Roact.createElement(Canvas, _attributes_3, _children_3)\
+\9_children[_length + 2] = Roact.createElement(Canvas, _attributes_2, _children_2)\
+\9local _attributes_4 = {\
+\9\9size = px(278, 49),\
+\9\9position = px(24, 237),\
+\9}\
+\9local _children_4 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 100,\
+\9\9\9initialValue = outlineJob.value,\
+\9\9\9onValueChanged = setOutlineValue,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espOutline\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, 49),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = outlineAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = outlineValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"%\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_4 = #_children_4\
+\9local _attributes_5 = {\
+\9\9size = px(73, 49),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_5 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_5 = #_children_5\
+\9local _child_2 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_2 then\
+\9\9if _child_2.elements ~= nil or _child_2.props ~= nil and _child_2.component ~= nil then\
+\9\9\9_children_5[_length_5 + 1] = _child_2\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_2) do\
+\9\9\9\9_children_5[_length_5 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_5 = #_children_5\
+\9_children_5[_length_5 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Outline\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_4[_length_4 + 1] = Roact.createElement(Canvas, _attributes_5, _children_5)\
+\9_children[_length + 3] = Roact.createElement(Canvas, _attributes_4, _children_4)\
+\9local _attributes_6 = {\
+\9\9size = px(278, 49),\
+\9\9position = px(24, 298),\
+\9}\
+\9local _children_6 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 360,\
+\9\9\9initialValue = hueJob.value,\
+\9\9\9onValueChanged = function(v)\
+\9\9\9\9setHueValue(v)\
+\9\9\9\9setHueColor(hueToColor(v))\
+\9\9\9end,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espHue\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, 49),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = hueAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = hueValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"°\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_6 = #_children_6\
+\9local _attributes_7 = {\
+\9\9size = px(73, 49),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_7 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_7 = #_children_7\
+\9local _child_3 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_3 then\
+\9\9if _child_3.elements ~= nil or _child_3.props ~= nil and _child_3.component ~= nil then\
+\9\9\9_children_7[_length_7 + 1] = _child_3\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_3) do\
+\9\9\9\9_children_7[_length_7 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_7 = #_children_7\
+\9_children_7[_length_7 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Hue\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_6[_length_6 + 1] = Roact.createElement(Canvas, _attributes_7, _children_7)\
+\9_children[_length + 4] = Roact.createElement(Canvas, _attributes_6, _children_6)\
+\9_children[_length + 5] = Roact.createElement(Canvas, {\
+\9\9size = px(278, 49),\
+\9\9position = px(24, 363),\
+\9}, {\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"esp\",\
+\9\9\9hint = \"<font face='GothamBlack'>Highlight</font> other players with ESP outlines\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Highlight\",\
+\9\9\9position = px(0, 0),\
+\9\9\9size = px(84, 49),\
+\9\9\9canDeactivate = true,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espName\",\
+\9\9\9hint = \"Show <font face='GothamBlack'>name tags</font> above other players\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Names\",\
+\9\9\9position = px(97, 0),\
+\9\9\9size = px(84, 49),\
+\9\9\9canDeactivate = true,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espHealth\",\
+\9\9\9hint = \"Show <font face='GothamBlack'>health bars</font> above other players\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Health\",\
+\9\9\9position = px(194, 0),\
+\9\9\9size = px(84, 49),\
+\9\9\9canDeactivate = true,\
+\9\9}),\
+\9})\
+\9return Roact.createElement(Card, _attributes, _children)\
+end\
+local default = hooked(Esp)\
+return {\
+\9default = default,\
+}\
+", '@'.."Orca.views.Pages.Apps.Esp")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Esp")) return fn() end)
 
 newModule("Players", "ModuleScript", "Orca.views.Pages.Apps.Players", "Orca.views.Pages.Apps", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
@@ -8547,7 +9396,7 @@ local function Title()\
 \9\9}, {\
 \9\9\9Roact.createElement(Label, {\
 \9\9\9\9index = 0,\
-\9\9\9\9text = \"Orca\",\
+\9\9\9\9text = \"Orca+\",\
 \9\9\9\9font = Enum.Font.GothamBlack,\
 \9\9\9\9size = 20,\
 \9\9\9\9position = px(0, 0),\
@@ -8565,13 +9414,13 @@ local function Title()\
 \9\9\9}),\
 \9\9\9Roact.createElement(Label, {\
 \9\9\9\9index = 3,\
-\9\9\9\9text = \"Pls star repo\",\
+\9\9\9\9text = \"modded by taco\",\
 \9\9\9\9position = px(0, 86),\
 \9\9\9\9transparency = 0.3,\
 \9\9\9}),\
 \9\9\9Roact.createElement(Label, {\
 \9\9\9\9index = 4,\
-\9\9\9\9text = \"richie0866/orca\",\
+\9\9\9\9text = \"mgtaco/orcaplus\",\
 \9\9\9\9position = UDim2.new(0, 0, 1, -40),\
 \9\9\9\9transparency = 0.45,\
 \9\9\9}),\
@@ -9175,7 +10024,7 @@ local _ShortcutItem = TS.import(script, script.Parent, \"ShortcutItem\")\
 local ShortcutItem = _ShortcutItem.default\
 local ENTRY_HEIGHT = _ShortcutItem.ENTRY_HEIGHT\
 local PADDING = _ShortcutItem.PADDING\
-local ENTRY_COUNT = 6\
+local ENTRY_COUNT = 7\
 local function Shortcuts()\
 \9local store = useAppStore()\
 \9local dispatch = useAppDispatch()\
@@ -9278,6 +10127,16 @@ local function Shortcuts()\
 \9\9\9\9\9action = \"setJumpHeight\",\
 \9\9\9\9\9description = \"Set jump height\",\
 \9\9\9\9\9index = 5,\
+\9\9\9\9}),\
+\9\9\9\9Roact.createElement(ShortcutItem, {\
+\9\9\9\9\9onActivate = function()\
+\9\9\9\9\9\9dispatch(setJobActive(\"esp\", not store:getState().jobs.esp.active))\
+\9\9\9\9\9end,\
+\9\9\9\9\9onSelect = setSelectedItem,\
+\9\9\9\9\9selectedItem = selectedItem,\
+\9\9\9\9\9action = \"toggleEsp\",\
+\9\9\9\9\9description = \"Toggle ESP\",\
+\9\9\9\9\9index = 6,\
 \9\9\9\9}),\
 \9\9\9}),\
 \9\9}),\
@@ -11839,487 +12698,487 @@ newInstance("types", "Folder", "Orca.include.node_modules.exploit-types.types", 
 
 newInstance("flipper", "Folder", "Orca.include.node_modules.flipper", "Orca.include.node_modules")
 
-newModule("src", "ModuleScript", "Orca.include.node_modules.flipper.src", "Orca.include.node_modules.flipper", function () local fn = assert(loadstring("local Flipper = {\13\
-\9SingleMotor = require(script.SingleMotor),\13\
-\9GroupMotor = require(script.GroupMotor),\13\
-\13\
-\9Instant = require(script.Instant),\13\
-\9Linear = require(script.Linear),\13\
-\9Spring = require(script.Spring),\13\
-\9\13\
-\9isMotor = require(script.isMotor),\13\
-}\13\
-\13\
+newModule("src", "ModuleScript", "Orca.include.node_modules.flipper.src", "Orca.include.node_modules.flipper", function () local fn = assert(loadstring("local Flipper = {\
+\9SingleMotor = require(script.SingleMotor),\
+\9GroupMotor = require(script.GroupMotor),\
+\
+\9Instant = require(script.Instant),\
+\9Linear = require(script.Linear),\
+\9Spring = require(script.Spring),\
+\9\
+\9isMotor = require(script.isMotor),\
+}\
+\
 return Flipper", '@'.."Orca.include.node_modules.flipper.src")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src")) return fn() end)
 
-newModule("BaseMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.BaseMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local RunService = game:GetService(\"RunService\")\13\
-\13\
-local Signal = require(script.Parent.Signal)\13\
-\13\
-local noop = function() end\13\
-\13\
-local BaseMotor = {}\13\
-BaseMotor.__index = BaseMotor\13\
-\13\
-function BaseMotor.new()\13\
-\9return setmetatable({\13\
-\9\9_onStep = Signal.new(),\13\
-\9\9_onStart = Signal.new(),\13\
-\9\9_onComplete = Signal.new(),\13\
-\9}, BaseMotor)\13\
-end\13\
-\13\
-function BaseMotor:onStep(handler)\13\
-\9return self._onStep:connect(handler)\13\
-end\13\
-\13\
-function BaseMotor:onStart(handler)\13\
-\9return self._onStart:connect(handler)\13\
-end\13\
-\13\
-function BaseMotor:onComplete(handler)\13\
-\9return self._onComplete:connect(handler)\13\
-end\13\
-\13\
-function BaseMotor:start()\13\
-\9if not self._connection then\13\
-\9\9self._connection = RunService.RenderStepped:Connect(function(deltaTime)\13\
-\9\9\9self:step(deltaTime)\13\
-\9\9end)\13\
-\9end\13\
-end\13\
-\13\
-function BaseMotor:stop()\13\
-\9if self._connection then\13\
-\9\9self._connection:Disconnect()\13\
-\9\9self._connection = nil\13\
-\9end\13\
-end\13\
-\13\
-BaseMotor.destroy = BaseMotor.stop\13\
-\13\
-BaseMotor.step = noop\13\
-BaseMotor.getValue = noop\13\
-BaseMotor.setGoal = noop\13\
-\13\
-function BaseMotor:__tostring()\13\
-\9return \"Motor\"\13\
-end\13\
-\13\
-return BaseMotor\13\
+newModule("BaseMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.BaseMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local RunService = game:GetService(\"RunService\")\
+\
+local Signal = require(script.Parent.Signal)\
+\
+local noop = function() end\
+\
+local BaseMotor = {}\
+BaseMotor.__index = BaseMotor\
+\
+function BaseMotor.new()\
+\9return setmetatable({\
+\9\9_onStep = Signal.new(),\
+\9\9_onStart = Signal.new(),\
+\9\9_onComplete = Signal.new(),\
+\9}, BaseMotor)\
+end\
+\
+function BaseMotor:onStep(handler)\
+\9return self._onStep:connect(handler)\
+end\
+\
+function BaseMotor:onStart(handler)\
+\9return self._onStart:connect(handler)\
+end\
+\
+function BaseMotor:onComplete(handler)\
+\9return self._onComplete:connect(handler)\
+end\
+\
+function BaseMotor:start()\
+\9if not self._connection then\
+\9\9self._connection = RunService.RenderStepped:Connect(function(deltaTime)\
+\9\9\9self:step(deltaTime)\
+\9\9end)\
+\9end\
+end\
+\
+function BaseMotor:stop()\
+\9if self._connection then\
+\9\9self._connection:Disconnect()\
+\9\9self._connection = nil\
+\9end\
+end\
+\
+BaseMotor.destroy = BaseMotor.stop\
+\
+BaseMotor.step = noop\
+BaseMotor.getValue = noop\
+BaseMotor.setGoal = noop\
+\
+function BaseMotor:__tostring()\
+\9return \"Motor\"\
+end\
+\
+return BaseMotor\
 ", '@'.."Orca.include.node_modules.flipper.src.BaseMotor")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.BaseMotor")) return fn() end)
 
-newModule("GroupMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.GroupMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local BaseMotor = require(script.Parent.BaseMotor)\13\
-local SingleMotor = require(script.Parent.SingleMotor)\13\
-\13\
-local isMotor = require(script.Parent.isMotor)\13\
-\13\
-local GroupMotor = setmetatable({}, BaseMotor)\13\
-GroupMotor.__index = GroupMotor\13\
-\13\
-local function toMotor(value)\13\
-\9if isMotor(value) then\13\
-\9\9return value\13\
-\9end\13\
-\13\
-\9local valueType = typeof(value)\13\
-\13\
-\9if valueType == \"number\" then\13\
-\9\9return SingleMotor.new(value, false)\13\
-\9elseif valueType == \"table\" then\13\
-\9\9return GroupMotor.new(value, false)\13\
-\9end\13\
-\13\
-\9error((\"Unable to convert %q to motor; type %s is unsupported\"):format(value, valueType), 2)\13\
-end\13\
-\13\
-function GroupMotor.new(initialValues, useImplicitConnections)\13\
-\9assert(initialValues, \"Missing argument #1: initialValues\")\13\
-\9assert(typeof(initialValues) == \"table\", \"initialValues must be a table!\")\13\
-\9assert(not initialValues.step, \"initialValues contains disallowed property \\\"step\\\". Did you mean to put a table of values here?\")\13\
-\13\
-\9local self = setmetatable(BaseMotor.new(), GroupMotor)\13\
-\13\
-\9if useImplicitConnections ~= nil then\13\
-\9\9self._useImplicitConnections = useImplicitConnections\13\
-\9else\13\
-\9\9self._useImplicitConnections = true\13\
-\9end\13\
-\13\
-\9self._complete = true\13\
-\9self._motors = {}\13\
-\13\
-\9for key, value in pairs(initialValues) do\13\
-\9\9self._motors[key] = toMotor(value)\13\
-\9end\13\
-\13\
-\9return self\13\
-end\13\
-\13\
-function GroupMotor:step(deltaTime)\13\
-\9if self._complete then\13\
-\9\9return true\13\
-\9end\13\
-\13\
-\9local allMotorsComplete = true\13\
-\13\
-\9for _, motor in pairs(self._motors) do\13\
-\9\9local complete = motor:step(deltaTime)\13\
-\9\9if not complete then\13\
-\9\9\9-- If any of the sub-motors are incomplete, the group motor will not be complete either\13\
-\9\9\9allMotorsComplete = false\13\
-\9\9end\13\
-\9end\13\
-\13\
-\9self._onStep:fire(self:getValue())\13\
-\13\
-\9if allMotorsComplete then\13\
-\9\9if self._useImplicitConnections then\13\
-\9\9\9self:stop()\13\
-\9\9end\13\
-\13\
-\9\9self._complete = true\13\
-\9\9self._onComplete:fire()\13\
-\9end\13\
-\13\
-\9return allMotorsComplete\13\
-end\13\
-\13\
-function GroupMotor:setGoal(goals)\13\
-\9assert(not goals.step, \"goals contains disallowed property \\\"step\\\". Did you mean to put a table of goals here?\")\13\
-\13\
-\9self._complete = false\13\
-\9self._onStart:fire()\13\
-\13\
-\9for key, goal in pairs(goals) do\13\
-\9\9local motor = assert(self._motors[key], (\"Unknown motor for key %s\"):format(key))\13\
-\9\9motor:setGoal(goal)\13\
-\9end\13\
-\13\
-\9if self._useImplicitConnections then\13\
-\9\9self:start()\13\
-\9end\13\
-end\13\
-\13\
-function GroupMotor:getValue()\13\
-\9local values = {}\13\
-\13\
-\9for key, motor in pairs(self._motors) do\13\
-\9\9values[key] = motor:getValue()\13\
-\9end\13\
-\13\
-\9return values\13\
-end\13\
-\13\
-function GroupMotor:__tostring()\13\
-\9return \"Motor(Group)\"\13\
-end\13\
-\13\
-return GroupMotor\13\
+newModule("GroupMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.GroupMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local BaseMotor = require(script.Parent.BaseMotor)\
+local SingleMotor = require(script.Parent.SingleMotor)\
+\
+local isMotor = require(script.Parent.isMotor)\
+\
+local GroupMotor = setmetatable({}, BaseMotor)\
+GroupMotor.__index = GroupMotor\
+\
+local function toMotor(value)\
+\9if isMotor(value) then\
+\9\9return value\
+\9end\
+\
+\9local valueType = typeof(value)\
+\
+\9if valueType == \"number\" then\
+\9\9return SingleMotor.new(value, false)\
+\9elseif valueType == \"table\" then\
+\9\9return GroupMotor.new(value, false)\
+\9end\
+\
+\9error((\"Unable to convert %q to motor; type %s is unsupported\"):format(value, valueType), 2)\
+end\
+\
+function GroupMotor.new(initialValues, useImplicitConnections)\
+\9assert(initialValues, \"Missing argument #1: initialValues\")\
+\9assert(typeof(initialValues) == \"table\", \"initialValues must be a table!\")\
+\9assert(not initialValues.step, \"initialValues contains disallowed property \\\"step\\\". Did you mean to put a table of values here?\")\
+\
+\9local self = setmetatable(BaseMotor.new(), GroupMotor)\
+\
+\9if useImplicitConnections ~= nil then\
+\9\9self._useImplicitConnections = useImplicitConnections\
+\9else\
+\9\9self._useImplicitConnections = true\
+\9end\
+\
+\9self._complete = true\
+\9self._motors = {}\
+\
+\9for key, value in pairs(initialValues) do\
+\9\9self._motors[key] = toMotor(value)\
+\9end\
+\
+\9return self\
+end\
+\
+function GroupMotor:step(deltaTime)\
+\9if self._complete then\
+\9\9return true\
+\9end\
+\
+\9local allMotorsComplete = true\
+\
+\9for _, motor in pairs(self._motors) do\
+\9\9local complete = motor:step(deltaTime)\
+\9\9if not complete then\
+\9\9\9-- If any of the sub-motors are incomplete, the group motor will not be complete either\
+\9\9\9allMotorsComplete = false\
+\9\9end\
+\9end\
+\
+\9self._onStep:fire(self:getValue())\
+\
+\9if allMotorsComplete then\
+\9\9if self._useImplicitConnections then\
+\9\9\9self:stop()\
+\9\9end\
+\
+\9\9self._complete = true\
+\9\9self._onComplete:fire()\
+\9end\
+\
+\9return allMotorsComplete\
+end\
+\
+function GroupMotor:setGoal(goals)\
+\9assert(not goals.step, \"goals contains disallowed property \\\"step\\\". Did you mean to put a table of goals here?\")\
+\
+\9self._complete = false\
+\9self._onStart:fire()\
+\
+\9for key, goal in pairs(goals) do\
+\9\9local motor = assert(self._motors[key], (\"Unknown motor for key %s\"):format(key))\
+\9\9motor:setGoal(goal)\
+\9end\
+\
+\9if self._useImplicitConnections then\
+\9\9self:start()\
+\9end\
+end\
+\
+function GroupMotor:getValue()\
+\9local values = {}\
+\
+\9for key, motor in pairs(self._motors) do\
+\9\9values[key] = motor:getValue()\
+\9end\
+\
+\9return values\
+end\
+\
+function GroupMotor:__tostring()\
+\9return \"Motor(Group)\"\
+end\
+\
+return GroupMotor\
 ", '@'.."Orca.include.node_modules.flipper.src.GroupMotor")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.GroupMotor")) return fn() end)
 
-newModule("Instant", "ModuleScript", "Orca.include.node_modules.flipper.src.Instant", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local Instant = {}\13\
-Instant.__index = Instant\13\
-\13\
-function Instant.new(targetValue)\13\
-\9return setmetatable({\13\
-\9\9_targetValue = targetValue,\13\
-\9}, Instant)\13\
-end\13\
-\13\
-function Instant:step()\13\
-\9return {\13\
-\9\9complete = true,\13\
-\9\9value = self._targetValue,\13\
-\9}\13\
-end\13\
-\13\
+newModule("Instant", "ModuleScript", "Orca.include.node_modules.flipper.src.Instant", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local Instant = {}\
+Instant.__index = Instant\
+\
+function Instant.new(targetValue)\
+\9return setmetatable({\
+\9\9_targetValue = targetValue,\
+\9}, Instant)\
+end\
+\
+function Instant:step()\
+\9return {\
+\9\9complete = true,\
+\9\9value = self._targetValue,\
+\9}\
+end\
+\
 return Instant", '@'.."Orca.include.node_modules.flipper.src.Instant")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.Instant")) return fn() end)
 
-newModule("Linear", "ModuleScript", "Orca.include.node_modules.flipper.src.Linear", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local Linear = {}\13\
-Linear.__index = Linear\13\
-\13\
-function Linear.new(targetValue, options)\13\
-\9assert(targetValue, \"Missing argument #1: targetValue\")\13\
-\9\13\
-\9options = options or {}\13\
-\13\
-\9return setmetatable({\13\
-\9\9_targetValue = targetValue,\13\
-\9\9_velocity = options.velocity or 1,\13\
-\9}, Linear)\13\
-end\13\
-\13\
-function Linear:step(state, dt)\13\
-\9local position = state.value\13\
-\9local velocity = self._velocity -- Linear motion ignores the state's velocity\13\
-\9local goal = self._targetValue\13\
-\13\
-\9local dPos = dt * velocity\13\
-\13\
-\9local complete = dPos >= math.abs(goal - position)\13\
-\9position = position + dPos * (goal > position and 1 or -1)\13\
-\9if complete then\13\
-\9\9position = self._targetValue\13\
-\9\9velocity = 0\13\
-\9end\13\
-\9\13\
-\9return {\13\
-\9\9complete = complete,\13\
-\9\9value = position,\13\
-\9\9velocity = velocity,\13\
-\9}\13\
-end\13\
-\13\
+newModule("Linear", "ModuleScript", "Orca.include.node_modules.flipper.src.Linear", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local Linear = {}\
+Linear.__index = Linear\
+\
+function Linear.new(targetValue, options)\
+\9assert(targetValue, \"Missing argument #1: targetValue\")\
+\9\
+\9options = options or {}\
+\
+\9return setmetatable({\
+\9\9_targetValue = targetValue,\
+\9\9_velocity = options.velocity or 1,\
+\9}, Linear)\
+end\
+\
+function Linear:step(state, dt)\
+\9local position = state.value\
+\9local velocity = self._velocity -- Linear motion ignores the state's velocity\
+\9local goal = self._targetValue\
+\
+\9local dPos = dt * velocity\
+\
+\9local complete = dPos >= math.abs(goal - position)\
+\9position = position + dPos * (goal > position and 1 or -1)\
+\9if complete then\
+\9\9position = self._targetValue\
+\9\9velocity = 0\
+\9end\
+\9\
+\9return {\
+\9\9complete = complete,\
+\9\9value = position,\
+\9\9velocity = velocity,\
+\9}\
+end\
+\
 return Linear", '@'.."Orca.include.node_modules.flipper.src.Linear")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.Linear")) return fn() end)
 
-newModule("Signal", "ModuleScript", "Orca.include.node_modules.flipper.src.Signal", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local Connection = {}\13\
-Connection.__index = Connection\13\
-\13\
-function Connection.new(signal, handler)\13\
-\9return setmetatable({\13\
-\9\9signal = signal,\13\
-\9\9connected = true,\13\
-\9\9_handler = handler,\13\
-\9}, Connection)\13\
-end\13\
-\13\
-function Connection:disconnect()\13\
-\9if self.connected then\13\
-\9\9self.connected = false\13\
-\13\
-\9\9for index, connection in pairs(self.signal._connections) do\13\
-\9\9\9if connection == self then\13\
-\9\9\9\9table.remove(self.signal._connections, index)\13\
-\9\9\9\9return\13\
-\9\9\9end\13\
-\9\9end\13\
-\9end\13\
-end\13\
-\13\
-local Signal = {}\13\
-Signal.__index = Signal\13\
-\13\
-function Signal.new()\13\
-\9return setmetatable({\13\
-\9\9_connections = {},\13\
-\9\9_threads = {},\13\
-\9}, Signal)\13\
-end\13\
-\13\
-function Signal:fire(...)\13\
-\9for _, connection in pairs(self._connections) do\13\
-\9\9connection._handler(...)\13\
-\9end\13\
-\13\
-\9for _, thread in pairs(self._threads) do\13\
-\9\9coroutine.resume(thread, ...)\13\
-\9end\13\
-\9\13\
-\9self._threads = {}\13\
-end\13\
-\13\
-function Signal:connect(handler)\13\
-\9local connection = Connection.new(self, handler)\13\
-\9table.insert(self._connections, connection)\13\
-\9return connection\13\
-end\13\
-\13\
-function Signal:wait()\13\
-\9table.insert(self._threads, coroutine.running())\13\
-\9return coroutine.yield()\13\
-end\13\
-\13\
+newModule("Signal", "ModuleScript", "Orca.include.node_modules.flipper.src.Signal", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local Connection = {}\
+Connection.__index = Connection\
+\
+function Connection.new(signal, handler)\
+\9return setmetatable({\
+\9\9signal = signal,\
+\9\9connected = true,\
+\9\9_handler = handler,\
+\9}, Connection)\
+end\
+\
+function Connection:disconnect()\
+\9if self.connected then\
+\9\9self.connected = false\
+\
+\9\9for index, connection in pairs(self.signal._connections) do\
+\9\9\9if connection == self then\
+\9\9\9\9table.remove(self.signal._connections, index)\
+\9\9\9\9return\
+\9\9\9end\
+\9\9end\
+\9end\
+end\
+\
+local Signal = {}\
+Signal.__index = Signal\
+\
+function Signal.new()\
+\9return setmetatable({\
+\9\9_connections = {},\
+\9\9_threads = {},\
+\9}, Signal)\
+end\
+\
+function Signal:fire(...)\
+\9for _, connection in pairs(self._connections) do\
+\9\9connection._handler(...)\
+\9end\
+\
+\9for _, thread in pairs(self._threads) do\
+\9\9coroutine.resume(thread, ...)\
+\9end\
+\9\
+\9self._threads = {}\
+end\
+\
+function Signal:connect(handler)\
+\9local connection = Connection.new(self, handler)\
+\9table.insert(self._connections, connection)\
+\9return connection\
+end\
+\
+function Signal:wait()\
+\9table.insert(self._threads, coroutine.running())\
+\9return coroutine.yield()\
+end\
+\
 return Signal", '@'.."Orca.include.node_modules.flipper.src.Signal")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.Signal")) return fn() end)
 
-newModule("SingleMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.SingleMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local BaseMotor = require(script.Parent.BaseMotor)\13\
-\13\
-local SingleMotor = setmetatable({}, BaseMotor)\13\
-SingleMotor.__index = SingleMotor\13\
-\13\
-function SingleMotor.new(initialValue, useImplicitConnections)\13\
-\9assert(initialValue, \"Missing argument #1: initialValue\")\13\
-\9assert(typeof(initialValue) == \"number\", \"initialValue must be a number!\")\13\
-\13\
-\9local self = setmetatable(BaseMotor.new(), SingleMotor)\13\
-\13\
-\9if useImplicitConnections ~= nil then\13\
-\9\9self._useImplicitConnections = useImplicitConnections\13\
-\9else\13\
-\9\9self._useImplicitConnections = true\13\
-\9end\13\
-\13\
-\9self._goal = nil\13\
-\9self._state = {\13\
-\9\9complete = true,\13\
-\9\9value = initialValue,\13\
-\9}\13\
-\13\
-\9return self\13\
-end\13\
-\13\
-function SingleMotor:step(deltaTime)\13\
-\9if self._state.complete then\13\
-\9\9return true\13\
-\9end\13\
-\13\
-\9local newState = self._goal:step(self._state, deltaTime)\13\
-\13\
-\9self._state = newState\13\
-\9self._onStep:fire(newState.value)\13\
-\13\
-\9if newState.complete then\13\
-\9\9if self._useImplicitConnections then\13\
-\9\9\9self:stop()\13\
-\9\9end\13\
-\13\
-\9\9self._onComplete:fire()\13\
-\9end\13\
-\13\
-\9return newState.complete\13\
-end\13\
-\13\
-function SingleMotor:getValue()\13\
-\9return self._state.value\13\
-end\13\
-\13\
-function SingleMotor:setGoal(goal)\13\
-\9self._state.complete = false\13\
-\9self._goal = goal\13\
-\13\
-\9self._onStart:fire()\13\
-\13\
-\9if self._useImplicitConnections then\13\
-\9\9self:start()\13\
-\9end\13\
-end\13\
-\13\
-function SingleMotor:__tostring()\13\
-\9return \"Motor(Single)\"\13\
-end\13\
-\13\
-return SingleMotor\13\
+newModule("SingleMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.SingleMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local BaseMotor = require(script.Parent.BaseMotor)\
+\
+local SingleMotor = setmetatable({}, BaseMotor)\
+SingleMotor.__index = SingleMotor\
+\
+function SingleMotor.new(initialValue, useImplicitConnections)\
+\9assert(initialValue, \"Missing argument #1: initialValue\")\
+\9assert(typeof(initialValue) == \"number\", \"initialValue must be a number!\")\
+\
+\9local self = setmetatable(BaseMotor.new(), SingleMotor)\
+\
+\9if useImplicitConnections ~= nil then\
+\9\9self._useImplicitConnections = useImplicitConnections\
+\9else\
+\9\9self._useImplicitConnections = true\
+\9end\
+\
+\9self._goal = nil\
+\9self._state = {\
+\9\9complete = true,\
+\9\9value = initialValue,\
+\9}\
+\
+\9return self\
+end\
+\
+function SingleMotor:step(deltaTime)\
+\9if self._state.complete then\
+\9\9return true\
+\9end\
+\
+\9local newState = self._goal:step(self._state, deltaTime)\
+\
+\9self._state = newState\
+\9self._onStep:fire(newState.value)\
+\
+\9if newState.complete then\
+\9\9if self._useImplicitConnections then\
+\9\9\9self:stop()\
+\9\9end\
+\
+\9\9self._onComplete:fire()\
+\9end\
+\
+\9return newState.complete\
+end\
+\
+function SingleMotor:getValue()\
+\9return self._state.value\
+end\
+\
+function SingleMotor:setGoal(goal)\
+\9self._state.complete = false\
+\9self._goal = goal\
+\
+\9self._onStart:fire()\
+\
+\9if self._useImplicitConnections then\
+\9\9self:start()\
+\9end\
+end\
+\
+function SingleMotor:__tostring()\
+\9return \"Motor(Single)\"\
+end\
+\
+return SingleMotor\
 ", '@'.."Orca.include.node_modules.flipper.src.SingleMotor")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.SingleMotor")) return fn() end)
 
-newModule("Spring", "ModuleScript", "Orca.include.node_modules.flipper.src.Spring", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local VELOCITY_THRESHOLD = 0.001\13\
-local POSITION_THRESHOLD = 0.001\13\
-\13\
-local EPS = 0.0001\13\
-\13\
-local Spring = {}\13\
-Spring.__index = Spring\13\
-\13\
-function Spring.new(targetValue, options)\13\
-\9assert(targetValue, \"Missing argument #1: targetValue\")\13\
-\9options = options or {}\13\
-\13\
-\9return setmetatable({\13\
-\9\9_targetValue = targetValue,\13\
-\9\9_frequency = options.frequency or 4,\13\
-\9\9_dampingRatio = options.dampingRatio or 1,\13\
-\9}, Spring)\13\
-end\13\
-\13\
-function Spring:step(state, dt)\13\
-\9-- Copyright 2018 Parker Stebbins (parker@fractality.io)\13\
-\9-- github.com/Fraktality/Spring\13\
-\9-- Distributed under the MIT license\13\
-\13\
-\9local d = self._dampingRatio\13\
-\9local f = self._frequency*2*math.pi\13\
-\9local g = self._targetValue\13\
-\9local p0 = state.value\13\
-\9local v0 = state.velocity or 0\13\
-\13\
-\9local offset = p0 - g\13\
-\9local decay = math.exp(-d*f*dt)\13\
-\13\
-\9local p1, v1\13\
-\13\
-\9if d == 1 then -- Critically damped\13\
-\9\9p1 = (offset*(1 + f*dt) + v0*dt)*decay + g\13\
-\9\9v1 = (v0*(1 - f*dt) - offset*(f*f*dt))*decay\13\
-\9elseif d < 1 then -- Underdamped\13\
-\9\9local c = math.sqrt(1 - d*d)\13\
-\13\
-\9\9local i = math.cos(f*c*dt)\13\
-\9\9local j = math.sin(f*c*dt)\13\
-\13\
-\9\9-- Damping ratios approaching 1 can cause division by small numbers.\13\
-\9\9-- To fix that, group terms around z=j/c and find an approximation for z.\13\
-\9\9-- Start with the definition of z:\13\
-\9\9--    z = sin(dt*f*c)/c\13\
-\9\9-- Substitute a=dt*f:\13\
-\9\9--    z = sin(a*c)/c\13\
-\9\9-- Take the Maclaurin expansion of z with respect to c:\13\
-\9\9--    z = a - (a^3*c^2)/6 + (a^5*c^4)/120 + O(c^6)\13\
-\9\9--    z ≈ a - (a^3*c^2)/6 + (a^5*c^4)/120\13\
-\9\9-- Rewrite in Horner form:\13\
-\9\9--    z ≈ a + ((a*a)*(c*c)*(c*c)/20 - c*c)*(a*a*a)/6\13\
-\13\
-\9\9local z\13\
-\9\9if c > EPS then\13\
-\9\9\9z = j/c\13\
-\9\9else\13\
-\9\9\9local a = dt*f\13\
-\9\9\9z = a + ((a*a)*(c*c)*(c*c)/20 - c*c)*(a*a*a)/6\13\
-\9\9end\13\
-\13\
-\9\9-- Frequencies approaching 0 present a similar problem.\13\
-\9\9-- We want an approximation for y as f approaches 0, where:\13\
-\9\9--    y = sin(dt*f*c)/(f*c)\13\
-\9\9-- Substitute b=dt*c:\13\
-\9\9--    y = sin(b*c)/b\13\
-\9\9-- Now reapply the process from z.\13\
-\13\
-\9\9local y\13\
-\9\9if f*c > EPS then\13\
-\9\9\9y = j/(f*c)\13\
-\9\9else\13\
-\9\9\9local b = f*c\13\
-\9\9\9y = dt + ((dt*dt)*(b*b)*(b*b)/20 - b*b)*(dt*dt*dt)/6\13\
-\9\9end\13\
-\13\
-\9\9p1 = (offset*(i + d*z) + v0*y)*decay + g\13\
-\9\9v1 = (v0*(i - z*d) - offset*(z*f))*decay\13\
-\13\
-\9else -- Overdamped\13\
-\9\9local c = math.sqrt(d*d - 1)\13\
-\13\
-\9\9local r1 = -f*(d - c)\13\
-\9\9local r2 = -f*(d + c)\13\
-\13\
-\9\9local co2 = (v0 - offset*r1)/(2*f*c)\13\
-\9\9local co1 = offset - co2\13\
-\13\
-\9\9local e1 = co1*math.exp(r1*dt)\13\
-\9\9local e2 = co2*math.exp(r2*dt)\13\
-\13\
-\9\9p1 = e1 + e2 + g\13\
-\9\9v1 = e1*r1 + e2*r2\13\
-\9end\13\
-\13\
-\9local complete = math.abs(v1) < VELOCITY_THRESHOLD and math.abs(p1 - g) < POSITION_THRESHOLD\13\
-\9\13\
-\9return {\13\
-\9\9complete = complete,\13\
-\9\9value = complete and g or p1,\13\
-\9\9velocity = v1,\13\
-\9}\13\
-end\13\
-\13\
+newModule("Spring", "ModuleScript", "Orca.include.node_modules.flipper.src.Spring", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local VELOCITY_THRESHOLD = 0.001\
+local POSITION_THRESHOLD = 0.001\
+\
+local EPS = 0.0001\
+\
+local Spring = {}\
+Spring.__index = Spring\
+\
+function Spring.new(targetValue, options)\
+\9assert(targetValue, \"Missing argument #1: targetValue\")\
+\9options = options or {}\
+\
+\9return setmetatable({\
+\9\9_targetValue = targetValue,\
+\9\9_frequency = options.frequency or 4,\
+\9\9_dampingRatio = options.dampingRatio or 1,\
+\9}, Spring)\
+end\
+\
+function Spring:step(state, dt)\
+\9-- Copyright 2018 Parker Stebbins (parker@fractality.io)\
+\9-- github.com/Fraktality/Spring\
+\9-- Distributed under the MIT license\
+\
+\9local d = self._dampingRatio\
+\9local f = self._frequency*2*math.pi\
+\9local g = self._targetValue\
+\9local p0 = state.value\
+\9local v0 = state.velocity or 0\
+\
+\9local offset = p0 - g\
+\9local decay = math.exp(-d*f*dt)\
+\
+\9local p1, v1\
+\
+\9if d == 1 then -- Critically damped\
+\9\9p1 = (offset*(1 + f*dt) + v0*dt)*decay + g\
+\9\9v1 = (v0*(1 - f*dt) - offset*(f*f*dt))*decay\
+\9elseif d < 1 then -- Underdamped\
+\9\9local c = math.sqrt(1 - d*d)\
+\
+\9\9local i = math.cos(f*c*dt)\
+\9\9local j = math.sin(f*c*dt)\
+\
+\9\9-- Damping ratios approaching 1 can cause division by small numbers.\
+\9\9-- To fix that, group terms around z=j/c and find an approximation for z.\
+\9\9-- Start with the definition of z:\
+\9\9--    z = sin(dt*f*c)/c\
+\9\9-- Substitute a=dt*f:\
+\9\9--    z = sin(a*c)/c\
+\9\9-- Take the Maclaurin expansion of z with respect to c:\
+\9\9--    z = a - (a^3*c^2)/6 + (a^5*c^4)/120 + O(c^6)\
+\9\9--    z ≈ a - (a^3*c^2)/6 + (a^5*c^4)/120\
+\9\9-- Rewrite in Horner form:\
+\9\9--    z ≈ a + ((a*a)*(c*c)*(c*c)/20 - c*c)*(a*a*a)/6\
+\
+\9\9local z\
+\9\9if c > EPS then\
+\9\9\9z = j/c\
+\9\9else\
+\9\9\9local a = dt*f\
+\9\9\9z = a + ((a*a)*(c*c)*(c*c)/20 - c*c)*(a*a*a)/6\
+\9\9end\
+\
+\9\9-- Frequencies approaching 0 present a similar problem.\
+\9\9-- We want an approximation for y as f approaches 0, where:\
+\9\9--    y = sin(dt*f*c)/(f*c)\
+\9\9-- Substitute b=dt*c:\
+\9\9--    y = sin(b*c)/b\
+\9\9-- Now reapply the process from z.\
+\
+\9\9local y\
+\9\9if f*c > EPS then\
+\9\9\9y = j/(f*c)\
+\9\9else\
+\9\9\9local b = f*c\
+\9\9\9y = dt + ((dt*dt)*(b*b)*(b*b)/20 - b*b)*(dt*dt*dt)/6\
+\9\9end\
+\
+\9\9p1 = (offset*(i + d*z) + v0*y)*decay + g\
+\9\9v1 = (v0*(i - z*d) - offset*(z*f))*decay\
+\
+\9else -- Overdamped\
+\9\9local c = math.sqrt(d*d - 1)\
+\
+\9\9local r1 = -f*(d - c)\
+\9\9local r2 = -f*(d + c)\
+\
+\9\9local co2 = (v0 - offset*r1)/(2*f*c)\
+\9\9local co1 = offset - co2\
+\
+\9\9local e1 = co1*math.exp(r1*dt)\
+\9\9local e2 = co2*math.exp(r2*dt)\
+\
+\9\9p1 = e1 + e2 + g\
+\9\9v1 = e1*r1 + e2*r2\
+\9end\
+\
+\9local complete = math.abs(v1) < VELOCITY_THRESHOLD and math.abs(p1 - g) < POSITION_THRESHOLD\
+\9\
+\9return {\
+\9\9complete = complete,\
+\9\9value = complete and g or p1,\
+\9\9velocity = v1,\
+\9}\
+end\
+\
 return Spring", '@'.."Orca.include.node_modules.flipper.src.Spring")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.Spring")) return fn() end)
 
-newModule("isMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.isMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local function isMotor(value)\13\
-\9local motorType = tostring(value):match(\"^Motor%((.+)%)$\")\13\
-\13\
-\9if motorType then\13\
-\9\9return true, motorType\13\
-\9else\13\
-\9\9return false\13\
-\9end\13\
-end\13\
-\13\
+newModule("isMotor", "ModuleScript", "Orca.include.node_modules.flipper.src.isMotor", "Orca.include.node_modules.flipper.src", function () local fn = assert(loadstring("local function isMotor(value)\
+\9local motorType = tostring(value):match(\"^Motor%((.+)%)$\")\
+\
+\9if motorType then\
+\9\9return true, motorType\
+\9else\
+\9\9return false\
+\9end\
+end\
+\
 return isMotor", '@'.."Orca.include.node_modules.flipper.src.isMotor")) setfenv(fn, newEnv("Orca.include.node_modules.flipper.src.isMotor")) return fn() end)
 
 newInstance("typings", "Folder", "Orca.include.node_modules.flipper.typings", "Orca.include.node_modules.flipper")
@@ -17377,30 +18236,30 @@ end\
 return loggerMiddleware\
 ", '@'.."Orca.include.node_modules.rodux.src.loggerMiddleware")) setfenv(fn, newEnv("Orca.include.node_modules.rodux.src.loggerMiddleware")) return fn() end)
 
-newModule("makeActionCreator", "ModuleScript", "Orca.include.node_modules.rodux.src.makeActionCreator", "Orca.include.node_modules.rodux.src", function () local fn = assert(loadstring("--[[\13\
-\9A helper function to define a Rodux action creator with an associated name.\13\
-]]\13\
-local function makeActionCreator(name, fn)\13\
-\9assert(type(name) == \"string\", \"Bad argument #1: Expected a string name for the action creator\")\13\
-\13\
-\9assert(type(fn) == \"function\", \"Bad argument #2: Expected a function that creates action objects\")\13\
-\13\
-\9return setmetatable({\13\
-\9\9name = name,\13\
-\9}, {\13\
-\9\9__call = function(self, ...)\13\
-\9\9\9local result = fn(...)\13\
-\13\
-\9\9\9assert(type(result) == \"table\", \"Invalid action: An action creator must return a table\")\13\
-\13\
-\9\9\9result.type = name\13\
-\13\
-\9\9\9return result\13\
-\9\9end\13\
-\9})\13\
-end\13\
-\13\
-return makeActionCreator\13\
+newModule("makeActionCreator", "ModuleScript", "Orca.include.node_modules.rodux.src.makeActionCreator", "Orca.include.node_modules.rodux.src", function () local fn = assert(loadstring("--[[\
+\9A helper function to define a Rodux action creator with an associated name.\
+]]\
+local function makeActionCreator(name, fn)\
+\9assert(type(name) == \"string\", \"Bad argument #1: Expected a string name for the action creator\")\
+\
+\9assert(type(fn) == \"function\", \"Bad argument #2: Expected a function that creates action objects\")\
+\
+\9return setmetatable({\
+\9\9name = name,\
+\9}, {\
+\9\9__call = function(self, ...)\
+\9\9\9local result = fn(...)\
+\
+\9\9\9assert(type(result) == \"table\", \"Invalid action: An action creator must return a table\")\
+\
+\9\9\9result.type = name\
+\
+\9\9\9return result\
+\9\9end\
+\9})\
+end\
+\
+return makeActionCreator\
 ", '@'.."Orca.include.node_modules.rodux.src.makeActionCreator")) setfenv(fn, newEnv("Orca.include.node_modules.rodux.src.makeActionCreator")) return fn() end)
 
 newModule("prettyPrint", "ModuleScript", "Orca.include.node_modules.rodux.src.prettyPrint", "Orca.include.node_modules.rodux.src", function () local fn = assert(loadstring("local indent = \"    \"\
