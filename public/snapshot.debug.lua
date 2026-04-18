@@ -549,7 +549,9 @@ local function ActionButton(_param)\
 \9local hint = _param.hint\
 \9local theme = _param.theme\
 \9local image = _param.image\
+\9local label = _param.label\
 \9local position = _param.position\
+\9local size = _param.size\
 \9local canDeactivate = _param.canDeactivate\
 \9local dispatch = useAppDispatch()\
 \9local active = useAppSelector(function(state)\
@@ -580,7 +582,7 @@ local function ActionButton(_param)\
 \9end\
 \9local background = useSpring(_result, {})\
 \9local foreground = useSpring(active and theme.button.foregroundAccent and theme.button.foregroundAccent or theme.button.foreground, {})\
-\9return Roact.createElement(BrightButton, {\
+\9local _attributes = {\
 \9\9onActivate = function()\
 \9\9\9if active and canDeactivate then\
 \9\9\9\9dispatch(setJobActive(action, false))\
@@ -597,23 +599,47 @@ local function ActionButton(_param)\
 \9\9\9\9dispatch(clearHint())\
 \9\9\9end\
 \9\9end,\
-\9\9size = px(61, 49),\
-\9\9position = position,\
-\9\9radius = 8,\
-\9\9color = background,\
-\9\9borderEnabled = theme.button.outlined,\
-\9\9borderColor = foreground,\
-\9\9transparency = theme.button.backgroundTransparency,\
-\9}, {\
-\9\9Roact.createElement(\"ImageLabel\", {\
+\9}\
+\9local _condition = size\
+\9if _condition == nil then\
+\9\9_condition = px(61, 49)\
+\9end\
+\9_attributes.size = _condition\
+\9_attributes.position = position\
+\9_attributes.radius = 8\
+\9_attributes.color = background\
+\9_attributes.borderEnabled = theme.button.outlined\
+\9_attributes.borderColor = foreground\
+\9_attributes.transparency = theme.button.backgroundTransparency\
+\9local _result_1\
+\9if image ~= nil then\
+\9\9_result_1 = (Roact.createElement(\"ImageLabel\", {\
 \9\9\9Image = image,\
-\9\9\9ImageColor3 = foreground,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
 \9\9\9ImageTransparency = useSpring(active and 0 or (hovered and theme.button.foregroundTransparency - 0.25 or theme.button.foregroundTransparency), {}),\
-\9\9\9Size = px(36, 36),\
-\9\9\9Position = px(12, 6),\
+\9\9\9Size = UDim2.new(1, -16, 1, -10),\
+\9\9\9Position = UDim2.new(0, 8, 0, 5),\
 \9\9\9BackgroundTransparency = 1,\
-\9\9}),\
-\9})\
+\9\9}))\
+\9else\
+\9\9local _attributes_1 = {}\
+\9\9local _condition_1 = label\
+\9\9if _condition_1 == nil then\
+\9\9\9_condition_1 = \"\"\
+\9\9end\
+\9\9_attributes_1.Text = _condition_1\
+\9\9_attributes_1.Font = \"GothamBold\"\
+\9\9_attributes_1.TextSize = 15\
+\9\9_attributes_1.TextColor3 = foreground\
+\9\9_attributes_1.TextTransparency = useSpring(active and 0 or (hovered and theme.button.foregroundTransparency - 0.25 or theme.button.foregroundTransparency), {})\
+\9\9_attributes_1.Size = UDim2.new(1, 0, 1, 0)\
+\9\9_attributes_1.BackgroundTransparency = 1\
+\9\9_result_1 = (Roact.createElement(\"TextLabel\", _attributes_1))\
+\9end\
+\9local _children = {}\
+\9local _length = #_children\
+\9_children[_length + 1] = _result_1\
+\9return Roact.createElement(BrightButton, _attributes, _children)\
 end\
 local default = hooked(ActionButton)\
 return {\
@@ -3444,8 +3470,12 @@ local getStore = _job_store.getStore\
 local onJobChange = _job_store.onJobChange\
 local LOCAL_PLAYER = Players.LocalPlayer\
 local HIGHLIGHT_NAME = \"OrcaESP\"\
+local NAMETAG_NAME = \"OrcaESPName\"\
+local HEALTHBAR_NAME = \"OrcaESPHealth\"\
 local espConnection\
 local highlights = {}\
+local nameTags = {}\
+local healthBars = {}\
 local function hueToColor(hue)\
 \9return Color3.fromHSV(hue / 360, 1, 1)\
 end\
@@ -3463,21 +3493,6 @@ end\
 local function opacityToTransparency(opacity)\
 \9return 1 - math.clamp(opacity, 0, 100) / 100\
 end\
-local function applyTransparencies(highlight, fillOpacity, outlineOpacity)\
-\9highlight.FillTransparency = opacityToTransparency(fillOpacity)\
-\9highlight.OutlineTransparency = opacityToTransparency(outlineOpacity)\
-end\
-local function applyColorToAll(color)\
-\9local _arg0 = function(highlight)\
-\9\9highlight.FillColor = color\
-\9\9highlight.OutlineColor = color\
-\9end\
-\9-- ▼ ReadonlyMap.forEach ▼\
-\9for _k, _v in pairs(highlights) do\
-\9\9_arg0(_v, _k, highlights)\
-\9end\
-\9-- ▲ ReadonlyMap.forEach ▲\
-end\
 local function addHighlight(character, fillOpacity, outlineOpacity, color)\
 \9local highlight = highlights[character]\
 \9if not highlight then\
@@ -3486,15 +3501,11 @@ local function addHighlight(character, fillOpacity, outlineOpacity, color)\
 \9\9if _result ~= nil then\
 \9\9\9_result = _result:IsA(\"Highlight\")\
 \9\9end\
-\9\9if _result then\
-\9\9\9highlight = existing\
-\9\9else\
-\9\9\9highlight = Instance.new(\"Highlight\")\
-\9\9\9highlight.Name = HIGHLIGHT_NAME\
-\9\9\9highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop\
-\9\9\9highlight.Adornee = character\
-\9\9\9highlight.Parent = character\
-\9\9end\
+\9\9highlight = _result and existing or Instance.new(\"Highlight\")\
+\9\9highlight.Name = HIGHLIGHT_NAME\
+\9\9highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop\
+\9\9highlight.Adornee = character\
+\9\9highlight.Parent = character\
 \9\9local _highlight = highlight\
 \9\9-- ▼ Map.set ▼\
 \9\9highlights[character] = _highlight\
@@ -3502,21 +3513,23 @@ local function addHighlight(character, fillOpacity, outlineOpacity, color)\
 \9end\
 \9highlight.FillColor = color\
 \9highlight.OutlineColor = color\
-\9applyTransparencies(highlight, fillOpacity, outlineOpacity)\
+\9highlight.FillTransparency = opacityToTransparency(fillOpacity)\
+\9highlight.OutlineTransparency = opacityToTransparency(outlineOpacity)\
 end\
 local function removeHighlight(character)\
-\9local highlight = highlights[character]\
-\9if not highlight then\
+\9local h = highlights[character]\
+\9if not h then\
 \9\9return nil\
 \9end\
-\9highlight:Destroy()\
+\9h:Destroy()\
 \9-- ▼ Map.delete ▼\
 \9highlights[character] = nil\
 \9-- ▲ Map.delete ▲\
 end\
-local function clearHighlights()\
-\9local _arg0 = function(_, character)\
-\9\9return removeHighlight(character)\
+local function applyColorToAll(color)\
+\9local _arg0 = function(h)\
+\9\9h.FillColor = color\
+\9\9h.OutlineColor = color\
 \9end\
 \9-- ▼ ReadonlyMap.forEach ▼\
 \9for _k, _v in pairs(highlights) do\
@@ -3524,23 +3537,136 @@ local function clearHighlights()\
 \9end\
 \9-- ▲ ReadonlyMap.forEach ▲\
 end\
-local function syncHighlights(fillOpacity, outlineOpacity, color)\
+local function addNameTag(character, player, color)\
+\9if nameTags[character] ~= nil then\
+\9\9local tag = nameTags[character];\
+\9\9(tag:FindFirstChildWhichIsA(\"TextLabel\")).TextColor3 = color\
+\9\9return nil\
+\9end\
+\9local head = character:FindFirstChild(\"Head\")\
+\9if not head then\
+\9\9return nil\
+\9end\
+\9local billboard = Instance.new(\"BillboardGui\")\
+\9billboard.Name = NAMETAG_NAME\
+\9billboard.Adornee = head\
+\9billboard.StudsOffset = Vector3.new(0, 2.2, 0)\
+\9billboard.Size = UDim2.new(0, 120, 0, 22)\
+\9billboard.AlwaysOnTop = true\
+\9billboard.ResetOnSpawn = false\
+\9local label = Instance.new(\"TextLabel\")\
+\9label.Text = player.DisplayName\
+\9label.Font = Enum.Font.GothamBold\
+\9label.TextSize = 13\
+\9label.TextColor3 = color\
+\9label.TextStrokeColor3 = Color3.new(0, 0, 0)\
+\9label.TextStrokeTransparency = 0.4\
+\9label.BackgroundTransparency = 1\
+\9label.Size = UDim2.new(1, 0, 1, 0)\
+\9label.Parent = billboard\
+\9billboard.Parent = head\
+\9-- ▼ Map.set ▼\
+\9nameTags[character] = billboard\
+\9-- ▲ Map.set ▲\
+end\
+local function removeNameTag(character)\
+\9local tag = nameTags[character]\
+\9if not tag then\
+\9\9return nil\
+\9end\
+\9tag:Destroy()\
+\9-- ▼ Map.delete ▼\
+\9nameTags[character] = nil\
+\9-- ▲ Map.delete ▲\
+end\
+local function addHealthBar(character, color)\
+\9local humanoid = character:FindFirstChildWhichIsA(\"Humanoid\")\
+\9if not humanoid then\
+\9\9return nil\
+\9end\
+\9if healthBars[character] ~= nil then\
+\9\9local _binding = healthBars[character]\
+\9\9local fill = _binding.fill\
+\9\9fill.BackgroundColor3 = color\
+\9\9fill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)\
+\9\9return nil\
+\9end\
+\9local head = character:FindFirstChild(\"Head\")\
+\9if not head then\
+\9\9return nil\
+\9end\
+\9local billboard = Instance.new(\"BillboardGui\")\
+\9billboard.Name = HEALTHBAR_NAME\
+\9billboard.Adornee = head\
+\9billboard.StudsOffset = Vector3.new(0, 3.1, 0)\
+\9billboard.Size = UDim2.new(0, 80, 0, 7)\
+\9billboard.AlwaysOnTop = true\
+\9billboard.ResetOnSpawn = false\
+\9local bg = Instance.new(\"Frame\")\
+\9bg.Size = UDim2.new(1, 0, 1, 0)\
+\9bg.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)\
+\9bg.BackgroundTransparency = 0.3\
+\9bg.BorderSizePixel = 0\
+\9bg.Parent = billboard\
+\9Instance.new(\"UICorner\").Parent = bg\
+\9local fill = Instance.new(\"Frame\")\
+\9fill.Size = UDim2.new(humanoid.Health / humanoid.MaxHealth, 0, 1, 0)\
+\9fill.BackgroundColor3 = color\
+\9fill.BackgroundTransparency = 0\
+\9fill.BorderSizePixel = 0\
+\9fill.Parent = bg\
+\9Instance.new(\"UICorner\").Parent = fill\
+\9billboard.Parent = head\
+\9local _arg1 = {\
+\9\9bar = billboard,\
+\9\9fill = fill,\
+\9}\
+\9-- ▼ Map.set ▼\
+\9healthBars[character] = _arg1\
+\9-- ▲ Map.set ▲\
+end\
+local function removeHealthBar(character)\
+\9local entry = healthBars[character]\
+\9if not entry then\
+\9\9return nil\
+\9end\
+\9entry.bar:Destroy()\
+\9-- ▼ Map.delete ▼\
+\9healthBars[character] = nil\
+\9-- ▲ Map.delete ▲\
+end\
+local function syncAll(state)\
 \9local seen = {}\
 \9for _, player in ipairs(Players:GetPlayers()) do\
 \9\9if player == LOCAL_PLAYER then\
 \9\9\9continue\
 \9\9end\
 \9\9local character = getLivingCharacter(player)\
-\9\9if character then\
-\9\9\9-- ▼ Set.add ▼\
-\9\9\9seen[character] = true\
-\9\9\9-- ▲ Set.add ▲\
-\9\9\9addHighlight(character, fillOpacity, outlineOpacity, color)\
+\9\9if not character then\
+\9\9\9continue\
+\9\9end\
+\9\9-- ▼ Set.add ▼\
+\9\9seen[character] = true\
+\9\9-- ▲ Set.add ▲\
+\9\9if state.highlight then\
+\9\9\9addHighlight(character, state.fill, state.outline, state.color)\
+\9\9else\
+\9\9\9removeHighlight(character)\
+\9\9end\
+\9\9if state.name then\
+\9\9\9addNameTag(character, player, state.color)\
+\9\9else\
+\9\9\9removeNameTag(character)\
+\9\9end\
+\9\9if state.health then\
+\9\9\9addHealthBar(character, state.color)\
+\9\9else\
+\9\9\9removeHealthBar(character)\
 \9\9end\
 \9end\
-\9local _arg0 = function(_, character)\
-\9\9if not character.Parent or not (seen[character] ~= nil) then\
-\9\9\9removeHighlight(character)\
+\9local _arg0 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeHighlight(c)\
 \9\9end\
 \9end\
 \9-- ▼ ReadonlyMap.forEach ▼\
@@ -3548,84 +3674,112 @@ local function syncHighlights(fillOpacity, outlineOpacity, color)\
 \9\9_arg0(_v, _k, highlights)\
 \9end\
 \9-- ▲ ReadonlyMap.forEach ▲\
-end\
-local function startESP(fillOpacity, outlineOpacity, color)\
-\9if espConnection then\
-\9\9return nil\
+\9local _arg0_1 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeNameTag(c)\
+\9\9end\
 \9end\
-\9syncHighlights(fillOpacity, outlineOpacity, color)\
-\9espConnection = RunService.Heartbeat:Connect(function()\
-\9\9syncHighlights(fillOpacity, outlineOpacity, color)\
-\9end)\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(nameTags) do\
+\9\9_arg0_1(_v, _k, nameTags)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_2 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeHealthBar(c)\
+\9\9end\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(healthBars) do\
+\9\9_arg0_2(_v, _k, healthBars)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
 end\
-local function stopESP()\
+local function clearAll()\
+\9local _arg0 = function(_, c)\
+\9\9return removeHighlight(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(highlights) do\
+\9\9_arg0(_v, _k, highlights)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_1 = function(_, c)\
+\9\9return removeNameTag(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(nameTags) do\
+\9\9_arg0_1(_v, _k, nameTags)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_2 = function(_, c)\
+\9\9return removeHealthBar(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(healthBars) do\
+\9\9_arg0_2(_v, _k, healthBars)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+end\
+local function startLoop(state)\
 \9if espConnection then\
 \9\9espConnection:Disconnect()\
 \9\9espConnection = nil\
 \9end\
-\9clearHighlights()\
+\9syncAll(state)\
+\9espConnection = RunService.Heartbeat:Connect(function()\
+\9\9return syncAll(state)\
+\9end)\
+end\
+local function stopLoop()\
+\9if espConnection then\
+\9\9espConnection:Disconnect()\
+\9\9espConnection = nil\
+\9end\
+end\
+local function anyActive(state)\
+\9return state.highlight or (state.name or state.health)\
 end\
 local main = TS.async(function()\
 \9local store = TS.await(getStore())\
 \9local getState = function()\
 \9\9local jobs = store:getState().jobs\
 \9\9return {\
+\9\9\9highlight = jobs.esp.active,\
+\9\9\9name = jobs.espName.active,\
+\9\9\9health = jobs.espHealth.active,\
 \9\9\9fill = jobs.espFill.value,\
 \9\9\9outline = jobs.espOutline.value,\
 \9\9\9color = hueToColor(jobs.espHue.value),\
 \9\9}\
 \9end\
-\9if store:getState().jobs.esp.active then\
-\9\9local _binding = getState()\
-\9\9local fill = _binding.fill\
-\9\9local outline = _binding.outline\
-\9\9local color = _binding.color\
-\9\9startESP(fill, outline, color)\
+\9local refresh = function()\
+\9\9local state = getState()\
+\9\9if anyActive(state) then\
+\9\9\9startLoop(state)\
+\9\9else\
+\9\9\9stopLoop()\
+\9\9\9clearAll()\
+\9\9end\
 \9end\
 \9Players.PlayerRemoving:Connect(function(player)\
 \9\9if player ~= LOCAL_PLAYER and player.Character then\
 \9\9\9removeHighlight(player.Character)\
+\9\9\9removeNameTag(player.Character)\
+\9\9\9removeHealthBar(player.Character)\
 \9\9end\
 \9end)\
-\9TS.await(onJobChange(\"esp\", function(job)\
-\9\9if job.active then\
-\9\9\9local _binding = getState()\
-\9\9\9local fill = _binding.fill\
-\9\9\9local outline = _binding.outline\
-\9\9\9local color = _binding.color\
-\9\9\9startESP(fill, outline, color)\
-\9\9else\
-\9\9\9stopESP()\
-\9\9end\
-\9end))\
-\9TS.await(onJobChange(\"espFill\", function(job)\
-\9\9if store:getState().jobs.esp.active then\
-\9\9\9stopESP()\
-\9\9\9local _binding = getState()\
-\9\9\9local outline = _binding.outline\
-\9\9\9local color = _binding.color\
-\9\9\9startESP(job.value, outline, color)\
-\9\9end\
-\9end))\
-\9TS.await(onJobChange(\"espOutline\", function(job)\
-\9\9if store:getState().jobs.esp.active then\
-\9\9\9stopESP()\
-\9\9\9local _binding = getState()\
-\9\9\9local fill = _binding.fill\
-\9\9\9local color = _binding.color\
-\9\9\9startESP(fill, job.value, color)\
-\9\9end\
-\9end))\
-\9TS.await(onJobChange(\"espHue\", function(job)\
-\9\9local color = hueToColor(job.value)\
-\9\9applyColorToAll(color)\
-\9\9if store:getState().jobs.esp.active then\
-\9\9\9stopESP()\
-\9\9\9local _binding = getState()\
-\9\9\9local fill = _binding.fill\
-\9\9\9local outline = _binding.outline\
-\9\9\9startESP(fill, outline, color)\
-\9\9end\
+\9if anyActive(getState()) then\
+\9\9refresh()\
+\9end\
+\9TS.await(onJobChange(\"esp\", refresh))\
+\9TS.await(onJobChange(\"espName\", refresh))\
+\9TS.await(onJobChange(\"espHealth\", refresh))\
+\9TS.await(onJobChange(\"espFill\", refresh))\
+\9TS.await(onJobChange(\"espOutline\", refresh))\
+\9TS.await(onJobChange(\"espHue\", function()\
+\9\9applyColorToAll(getState().color)\
+\9\9refresh()\
 \9end))\
 end)\
 main():catch(function(err)\
@@ -4292,9 +4446,7 @@ newModule("options.model", "ModuleScript", "Orca.store.models.options.model", "O
 
 newModule("persistent-state", "ModuleScript", "Orca.store.persistent-state", "Orca.store", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.include.RuntimeLib)\
-local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
-local HttpService = _services.HttpService\
-local Players = _services.Players\
+local HttpService = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).HttpService\
 local getStore = TS.import(script, script.Parent.Parent, \"jobs\", \"helpers\", \"job-store\").getStore\
 local setInterval = TS.import(script, script.Parent.Parent, \"utils\", \"timeout\").setInterval\
 if makefolder and not isfolder(\"_orca\") then\
@@ -4344,10 +4496,13 @@ autosave = TS.async(function(name, selector)\
 \9\9write(\"_orca/\" .. (name .. \".json\"), HttpService:JSONEncode(state))\
 \9end\
 \9setInterval(save, 60000)\
-\9Players.PlayerRemoving:Connect(function(player)\
-\9\9if player == Players.LocalPlayer then\
+\9local wasOpen = store:getState().dashboard.isOpen\
+\9store.changed:connect(function(newState)\
+\9\9local isOpen = newState.dashboard.isOpen\
+\9\9if wasOpen and not isOpen then\
 \9\9\9save()\
 \9\9end\
+\9\9wasOpen = isOpen\
 \9end)\
 end)\
 return {\
@@ -4467,8 +4622,14 @@ local initialState = {\
 \9esp = {\
 \9\9active = false,\
 \9},\
+\9espName = {\
+\9\9active = false,\
+\9},\
+\9espHealth = {\
+\9\9active = false,\
+\9},\
 \9espFill = {\
-\9\9value = 40,\
+\9\9value = 10,\
 \9\9active = false,\
 \9},\
 \9espOutline = {\
@@ -4476,7 +4637,7 @@ local initialState = {\
 \9\9active = false,\
 \9},\
 \9espHue = {\
-\9\9value = 0,\
+\9\9value = 180,\
 \9\9active = false,\
 \9},\
 \9teleport = {\
@@ -4827,6 +4988,8 @@ local darkTheme = {\
 \9\9\9},\
 \9\9\9highlight = {\
 \9\9\9\9esp = hex(\"#ff6464\"),\
+\9\9\9\9espName = hex(\"#37CC95\"),\
+\9\9\9\9espHealth = hex(\"#EC423D\"),\
 \9\9\9\9teleport = hex(\"#37CC95\"),\
 \9\9\9\9hide = hex(\"#f09c2d\"),\
 \9\9\9\9kill = hex(\"#EC423D\"),\
@@ -5094,6 +5257,8 @@ for _k, _v in pairs(view) do\
 end\
 _object_14.highlight = {\
 \9esp = accent,\
+\9espName = accent,\
+\9espHealth = accent,\
 \9teleport = accent,\
 \9hide = accent,\
 \9kill = accent,\
@@ -5873,6 +6038,8 @@ _object_15.transparency = 0.7\
 _object_15.dropshadowTransparency = 0.65\
 _object_15.highlight = {\
 \9esp = accent,\
+\9espName = accent,\
+\9espHealth = accent,\
 \9teleport = accent,\
 \9hide = accent,\
 \9kill = accent,\
@@ -6170,6 +6337,8 @@ for _k, _v in pairs(view) do\
 end\
 _object_15.highlight = {\
 \9esp = redAccent,\
+\9espName = blueAccent,\
+\9espHealth = redAccent,\
 \9teleport = redAccent,\
 \9hide = blueAccent,\
 \9kill = redAccent,\
@@ -7164,8 +7333,8 @@ local _roact_hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact
 local hooked = _roact_hooked.hooked\
 local useBinding = _roact_hooked.useBinding\
 local useState = _roact_hooked.useState\
+local ActionButton = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"ActionButton\").default\
 local Border = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Border\").default\
-local BrightButton = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"BrightButton\").default\
 local BrightSlider = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"BrightSlider\").default\
 local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
 local Card = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Card\").default\
@@ -7173,14 +7342,8 @@ local Fill = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\
 local _rodux_hooks = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\")\
 local useAppDispatch = _rodux_hooks.useAppDispatch\
 local useAppSelector = _rodux_hooks.useAppSelector\
-local useSpring = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"use-spring\").useSpring\
 local useTheme = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-theme\").useTheme\
-local _dashboard_action = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"dashboard.action\")\
-local clearHint = _dashboard_action.clearHint\
-local setHint = _dashboard_action.setHint\
-local _jobs_action = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"jobs.action\")\
-local setJobActive = _jobs_action.setJobActive\
-local setJobValue = _jobs_action.setJobValue\
+local setJobValue = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"jobs.action\").setJobValue\
 local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"models\", \"dashboard.model\").DashboardPage\
 local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
 local px = _udim2.px\
@@ -7192,9 +7355,6 @@ local function Esp()\
 \9local dispatch = useAppDispatch()\
 \9local theme = useTheme(\"apps\").players\
 \9local profileHighlight = useTheme(\"home\").profile.highlight\
-\9local active = useAppSelector(function(state)\
-\9\9return state.jobs.esp.active\
-\9end)\
 \9local fillJob = useAppSelector(function(state)\
 \9\9return state.jobs.espFill\
 \9end)\
@@ -7204,43 +7364,21 @@ local function Esp()\
 \9local hueJob = useAppSelector(function(state)\
 \9\9return state.jobs.espHue\
 \9end)\
-\9local _binding = useState(false)\
-\9local hovered = _binding[1]\
-\9local setHovered = _binding[2]\
-\9local _binding_1 = useBinding(fillJob.value)\
-\9local fillValue = _binding_1[1]\
-\9local setFillValue = _binding_1[2]\
-\9local _binding_2 = useBinding(outlineJob.value)\
-\9local outlineValue = _binding_2[1]\
-\9local setOutlineValue = _binding_2[2]\
-\9local _binding_3 = useBinding(hueJob.value)\
-\9local hueValue = _binding_3[1]\
-\9local setHueValue = _binding_3[2]\
-\9local _binding_4 = useState(hueToColor(hueJob.value))\
-\9local hueColor = _binding_4[1]\
-\9local setHueColor = _binding_4[2]\
+\9local _binding = useBinding(fillJob.value)\
+\9local fillValue = _binding[1]\
+\9local setFillValue = _binding[2]\
+\9local _binding_1 = useBinding(outlineJob.value)\
+\9local outlineValue = _binding_1[1]\
+\9local setOutlineValue = _binding_1[2]\
+\9local _binding_2 = useBinding(hueJob.value)\
+\9local hueValue = _binding_2[1]\
+\9local setHueValue = _binding_2[2]\
+\9local _binding_3 = useState(hueToColor(hueJob.value))\
+\9local hueColor = _binding_3[1]\
+\9local setHueColor = _binding_3[2]\
 \9local fillAccent = profileHighlight.flight\
 \9local outlineAccent = profileHighlight.walkSpeed\
 \9local hueAccent = profileHighlight.jumpHeight\
-\9local _result\
-\9if active then\
-\9\9_result = hueColor\
-\9else\
-\9\9local _result_1\
-\9\9if hovered then\
-\9\9\9local _condition = theme.button.backgroundHovered\
-\9\9\9if _condition == nil then\
-\9\9\9\9_condition = theme.button.background:Lerp(hueColor, 0.1)\
-\9\9\9end\
-\9\9\9_result_1 = _condition\
-\9\9else\
-\9\9\9_result_1 = theme.button.background\
-\9\9end\
-\9\9_result = _result_1\
-\9end\
-\9local toggleBackground = useSpring(_result, {})\
-\9local toggleForeground = useSpring(active and theme.button.foregroundAccent and theme.button.foregroundAccent or theme.button.foreground, {})\
-\9local toggleTextTransparency = useSpring(active and 0 or (hovered and theme.button.foregroundTransparency - 0.25 or theme.button.foregroundTransparency), {})\
 \9local _attributes = {\
 \9\9index = 2,\
 \9\9page = DashboardPage.Apps,\
@@ -7462,7 +7600,7 @@ local function Esp()\
 \9_children_5[_length_5 + 1] = Roact.createElement(\"TextLabel\", {\
 \9\9Text = \"Outline\",\
 \9\9Font = \"GothamBold\",\
-\9\9TextSize = 13,\
+\9\9TextSize = 15,\
 \9\9TextColor3 = theme.button.foreground,\
 \9\9TextTransparency = theme.button.foregroundTransparency,\
 \9\9TextXAlignment = \"Center\",\
@@ -7553,34 +7691,36 @@ local function Esp()\
 \9})\
 \9_children_6[_length_6 + 1] = Roact.createElement(Canvas, _attributes_7, _children_7)\
 \9_children[_length + 4] = Roact.createElement(Canvas, _attributes_6, _children_6)\
-\9_children[_length + 5] = Roact.createElement(BrightButton, {\
-\9\9onActivate = function()\
-\9\9\9return dispatch(setJobActive(\"esp\", not active))\
-\9\9end,\
-\9\9onHover = function(isHovered)\
-\9\9\9setHovered(isHovered)\
-\9\9\9if isHovered then\
-\9\9\9\9dispatch(setHint(\"<font face='GothamBlack'>Highlight</font> other players with ESP outlines\"))\
-\9\9\9else\
-\9\9\9\9dispatch(clearHint())\
-\9\9\9end\
-\9\9end,\
+\9_children[_length + 5] = Roact.createElement(Canvas, {\
 \9\9size = px(278, 49),\
 \9\9position = px(24, 363),\
-\9\9radius = 12,\
-\9\9color = toggleBackground,\
-\9\9borderEnabled = theme.button.outlined,\
-\9\9borderColor = toggleForeground,\
-\9\9transparency = theme.button.backgroundTransparency,\
 \9}, {\
-\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9Text = active and \"Disable ESP\" or \"Enable ESP\",\
-\9\9\9Font = \"GothamBold\",\
-\9\9\9TextSize = 16,\
-\9\9\9TextColor3 = toggleForeground,\
-\9\9\9TextTransparency = toggleTextTransparency,\
-\9\9\9Size = scale(1, 1),\
-\9\9\9BackgroundTransparency = 1,\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"esp\",\
+\9\9\9hint = \"<font face='GothamBlack'>Highlight</font> other players with ESP outlines\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Highlight\",\
+\9\9\9position = px(0, 0),\
+\9\9\9size = px(84, 49),\
+\9\9\9canDeactivate = true,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espName\",\
+\9\9\9hint = \"Show <font face='GothamBlack'>name tags</font> above other players\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Names\",\
+\9\9\9position = px(97, 0),\
+\9\9\9size = px(84, 49),\
+\9\9\9canDeactivate = true,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espHealth\",\
+\9\9\9hint = \"Show <font face='GothamBlack'>health bars</font> above other players\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Health\",\
+\9\9\9position = px(194, 0),\
+\9\9\9size = px(84, 49),\
+\9\9\9canDeactivate = true,\
 \9\9}),\
 \9})\
 \9return Roact.createElement(Card, _attributes, _children)\
