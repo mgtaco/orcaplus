@@ -146,6 +146,8 @@ export const frostedGlass: Theme = {
 			...view,
 			highlight: {
 				esp: accent,
+				espName: accent,
+				espHealth: accent,
 				teleport: accent,
 				hide: accent,
 				kill: accent,

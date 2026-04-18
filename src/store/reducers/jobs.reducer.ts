@@ -12,9 +12,11 @@ const initialState: JobsState = {
 	godmode: { active: false },
 	freecam: { active: false },
 	esp: { active: false },
-	espFill: { value: 40, active: false },
+	espName: { active: false },
+	espHealth: { active: false },
+	espFill: { value: 10, active: false },
 	espOutline: { value: 100, active: false },
-	espHue: { value: 0, active: false },
+	espHue: { value: 180, active: false },
 
 	teleport: { active: false },
 	hide: { active: false },

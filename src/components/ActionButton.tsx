@@ -13,12 +13,14 @@ interface Props {
 	action: keyof JobsState;
 	hint: string;
 	theme: Theme["home"]["profile"] | Theme["apps"]["players"];
-	image: string;
+	image?: string;
+	label?: string;
 	position: UDim2;
+	size?: UDim2;
 	canDeactivate?: boolean;
 }
 
-function ActionButton({ action, hint, theme, image, position, canDeactivate }: Props) {
+function ActionButton({ action, hint, theme, image, label, position, size, canDeactivate }: Props) {
 	const dispatch = useAppDispatch();
 	const active = useAppSelector((state) => state.jobs[action].active);
 
@@ -60,7 +62,7 @@ function ActionButton({ action, hint, theme, image, position, canDeactivate }: P
 					dispatch(clearHint());
 				}
 			}}
-			size={px(61, 49)}
+			size={size ?? px(61, 49)}
 			position={position}
 			radius={8}
 			color={background}
@@ -68,9 +70,10 @@ function ActionButton({ action, hint, theme, image, position, canDeactivate }: P
 			borderColor={foreground}
 			transparency={theme.button.backgroundTransparency}
 		>
+		{image !== undefined ? (
 			<imagelabel
 				Image={image}
-				ImageColor3={foreground}
+				ScaleType={Enum.ScaleType.Fit}
 				ImageTransparency={useSpring(
 					active
 						? 0
@@ -79,10 +82,28 @@ function ActionButton({ action, hint, theme, image, position, canDeactivate }: P
 						: theme.button.foregroundTransparency,
 					{},
 				)}
-				Size={px(36, 36)}
-				Position={px(12, 6)}
+				Size={new UDim2(1, -16, 1, -10)}
+				Position={new UDim2(0, 8, 0, 5)}
 				BackgroundTransparency={1}
 			/>
+			) : (
+				<textlabel
+					Text={label ?? ""}
+					Font="GothamBold"
+					TextSize={15}
+					TextColor3={foreground}
+					TextTransparency={useSpring(
+						active
+							? 0
+							: hovered
+							? theme.button.foregroundTransparency - 0.25
+							: theme.button.foregroundTransparency,
+						{},
+					)}
+					Size={new UDim2(1, 0, 1, 0)}
+					BackgroundTransparency={1}
+				/>
+			)}
 		</BrightButton>
 	);
 }

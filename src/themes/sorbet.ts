@@ -140,6 +140,8 @@ export const sorbet: Theme = {
 			...view,
 			highlight: {
 				esp: redAccent,
+				espName: blueAccent,
+				espHealth: redAccent,
 				teleport: redAccent,
 				hide: blueAccent,
 				kill: redAccent,

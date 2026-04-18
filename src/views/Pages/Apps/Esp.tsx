@@ -1,16 +1,14 @@
 import Roact from "@rbxts/roact";
 import { hooked, useBinding, useState } from "@rbxts/roact-hooked";
+import ActionButton from "components/ActionButton";
 import Border from "components/Border";
-import BrightButton from "components/BrightButton";
 import BrightSlider from "components/BrightSlider";
 import Canvas from "components/Canvas";
 import Card from "components/Card";
 import Fill from "components/Fill";
 import { useAppDispatch, useAppSelector } from "hooks/common/rodux-hooks";
-import { useSpring } from "hooks/common/use-spring";
 import { useTheme } from "hooks/use-theme";
-import { clearHint, setHint } from "store/actions/dashboard.action";
-import { setJobActive, setJobValue } from "store/actions/jobs.action";
+import { setJobValue } from "store/actions/jobs.action";
 import { DashboardPage } from "store/models/dashboard.model";
 import { px, scale } from "utils/udim2";
 
@@ -22,12 +20,10 @@ function Esp() {
 	const dispatch = useAppDispatch();
 	const theme = useTheme("apps").players;
 	const profileHighlight = useTheme("home").profile.highlight;
-	const active = useAppSelector((state) => state.jobs.esp.active);
 	const fillJob = useAppSelector((state) => state.jobs.espFill);
 	const outlineJob = useAppSelector((state) => state.jobs.espOutline);
 	const hueJob = useAppSelector((state) => state.jobs.espHue);
 
-	const [hovered, setHovered] = useState(false);
 	const [fillValue, setFillValue] = useBinding(fillJob.value);
 	const [outlineValue, setOutlineValue] = useBinding(outlineJob.value);
 	const [hueValue, setHueValue] = useBinding(hueJob.value);
@@ -36,23 +32,6 @@ function Esp() {
 	const fillAccent = profileHighlight.flight;
 	const outlineAccent = profileHighlight.walkSpeed;
 	const hueAccent = profileHighlight.jumpHeight;
-
-	const toggleBackground = useSpring(
-		active
-			? hueColor
-			: hovered
-			? theme.button.backgroundHovered ?? theme.button.background.Lerp(hueColor, 0.1)
-			: theme.button.background,
-		{},
-	);
-	const toggleForeground = useSpring(
-		active && theme.button.foregroundAccent ? theme.button.foregroundAccent : theme.button.foreground,
-		{},
-	);
-	const toggleTextTransparency = useSpring(
-		active ? 0 : hovered ? theme.button.foregroundTransparency - 0.25 : theme.button.foregroundTransparency,
-		{},
-	);
 
 	return (
 		<Card index={2} page={DashboardPage.Apps} theme={theme} size={px(326, 437)} position={new UDim2(0, 374, 1, 0)}>
@@ -168,10 +147,10 @@ function Esp() {
 				<Canvas size={px(73, 49)} position={px(205, 0)}>
 					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
 					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
-					<textlabel
-						Text="Outline"
-						Font="GothamBold"
-						TextSize={13}
+				<textlabel
+					Text="Outline"
+					Font="GothamBold"
+					TextSize={15}
 						TextColor3={theme.button.foreground}
 						TextTransparency={theme.button.foregroundTransparency}
 						TextXAlignment="Center"
@@ -232,35 +211,36 @@ function Esp() {
 				</Canvas>
 			</Canvas>
 
-			{/* Toggle button */}
-			<BrightButton
-				onActivate={() => dispatch(setJobActive("esp", !active))}
-				onHover={(isHovered) => {
-					setHovered(isHovered);
-					if (isHovered) {
-						dispatch(setHint("<font face='GothamBlack'>Highlight</font> other players with ESP outlines"));
-					} else {
-						dispatch(clearHint());
-					}
-				}}
-				size={px(278, 49)}
-				position={px(24, 363)}
-				radius={12}
-				color={toggleBackground}
-				borderEnabled={theme.button.outlined}
-				borderColor={toggleForeground}
-				transparency={theme.button.backgroundTransparency}
-			>
-				<textlabel
-					Text={active ? "Disable ESP" : "Enable ESP"}
-					Font="GothamBold"
-					TextSize={16}
-					TextColor3={toggleForeground}
-					TextTransparency={toggleTextTransparency}
-					Size={scale(1, 1)}
-					BackgroundTransparency={1}
-				/>
-			</BrightButton>
+		{/* Toggle buttons — Highlight / Name / Health */}
+		<Canvas size={px(278, 49)} position={px(24, 363)}>
+			<ActionButton
+				action="esp"
+				hint="<font face='GothamBlack'>Highlight</font> other players with ESP outlines"
+				theme={theme}
+				label="Highlight"
+				position={px(0, 0)}
+				size={px(84, 49)}
+				canDeactivate
+			/>
+			<ActionButton
+				action="espName"
+				hint="Show <font face='GothamBlack'>name tags</font> above other players"
+				theme={theme}
+				label="Names"
+				position={px(97, 0)}
+				size={px(84, 49)}
+				canDeactivate
+			/>
+			<ActionButton
+				action="espHealth"
+				hint="Show <font face='GothamBlack'>health bars</font> above other players"
+				theme={theme}
+				label="Health"
+				position={px(194, 0)}
+				size={px(84, 49)}
+				canDeactivate
+			/>
+		</Canvas>
 		</Card>
 	);
 }

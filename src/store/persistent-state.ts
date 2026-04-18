@@ -56,9 +56,12 @@ async function autosave(name: string, selector: (state: RootState) => object) {
 
 	setInterval(save, 60000);
 
-	Players.PlayerRemoving.Connect((player) => {
-		if (player === Players.LocalPlayer) {
+	let wasOpen = store.getState().dashboard.isOpen;
+	store.changed.connect((newState: RootState) => {
+		const isOpen = newState.dashboard.isOpen;
+		if (wasOpen && !isOpen) {
 			save();
 		}
+		wasOpen = isOpen;
 	});
 }
