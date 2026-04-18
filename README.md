@@ -12,8 +12,6 @@ loadstring(
 
 Press `K` to open or close Orca. A 1080p monitor or above is recommended.
 
-&nbsp;
-
 ## 📖 Navigation
 
 ### 🏠 Home
@@ -33,7 +31,6 @@ Press `K` to open or close Orca. A 1080p monitor or above is recommended.
 - **Visuals** *(new)* — Enemy ESP panel.
   - **Fill / Outline sliders** — Adjust highlight opacity live (0–100%).
   - **Enable / Disable ESP** — Toggle Highlight instances on all other players.
-  - Keybind: `X` (rebindable in Options → Shortcuts)
 
 ### 📰 Scripts
 
@@ -51,7 +48,7 @@ A small collection of community favorites:
 
 - Set theme (Dark, Light, Sorbet, Obsidian, Frosted Glass, High Contrast)
 - Toggle acrylic effect
-- Keybinds — including **Toggle ESP** (default `X`)
+- Keybinds
 - Save settings
 
 &nbsp;
@@ -62,13 +59,3 @@ A small collection of community favorites:
 - Solara
 - JJSploit
 - Delta
-
-&nbsp;
-
-## 🔄 Reconnect / server hop
-
-On reconnect or server hop, Orca re-fetches from this fork's raw URL automatically — no extra setup needed. If you want to override this with a local file, set before loading:
-
-```lua
-getgenv()._ORCA_RELOAD = 'loadstring(readfile("path/to/orca.lua"))()'
-```
