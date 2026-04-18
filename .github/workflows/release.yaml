@@ -15,10 +15,8 @@ jobs:
           repository: ${{ github.event.repository.full_name }}
           ref: "master"
 
-      - name: Install Foreman
-        uses: rojo-rbx/setup-foreman@v1.0.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Rokit
+        uses: rojo-rbx/setup-rokit@v0.1.2
 
       - name: Install NPM dependencies
         uses: bahmutov/npm-install@v1.7.4
