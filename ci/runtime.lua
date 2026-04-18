@@ -14,7 +14,7 @@
 -- If your executor supports script.Source this happens automatically.
 -- Otherwise, add ONE line before running orca (e.g. in autoexec):
 --
---   getgenv()._ORCA_RELOAD = 'loadstring(readfile("path/to/orca.lua"))()'
+--   getgenv()._ORCA_RELOAD = 'loadstring(readfile("path/to/snapshot.lua"))()'
 --
 -- Orca will queue that string instead of fetching from GitHub.
 do
@@ -28,8 +28,8 @@ do
 				if not isfolder("_orca") then
 					makefolder("_orca")
 				end
-				writefile("_orca/orca.lua", src)
-				g._ORCA_RELOAD = 'loadstring(readfile("_orca/orca.lua"))()'
+				writefile("_orca/snapshot.lua", src)
+				g._ORCA_RELOAD = 'loadstring(readfile("_orca/snapshot.lua"))()'
 			end)
 		end
 	end

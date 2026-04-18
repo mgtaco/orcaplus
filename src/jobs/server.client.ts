@@ -44,9 +44,9 @@ async function onRejoin() {
 	}
 }
 
-// URL of the hosted orca.lua to re-execute after teleport.
+// URL of the hosted snapshot.lua to re-execute after teleport.
 // Change this to your own fork/pastebin raw URL so your custom build persists.
-const RELOAD_URL = "https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/orca.lua";
+const RELOAD_URL = "https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/snapshot.lua";
 
 function queueExecution() {
 	const queueFn = syn?.queue_on_teleport ?? queue_on_teleport;
