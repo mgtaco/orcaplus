@@ -3,6 +3,9 @@ name: Publish Nightly Snapshot
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   bundle-snapshot:
     runs-on: ubuntu-22.04
