@@ -5,7 +5,7 @@
 --
 -- Author: 0866
 -- License: MIT
--- Version: "1.2.0-dbg"
+-- Version: "dev-dbg"
 -- GitHub: https://github.com/richie0866/orca
 --]]
 
@@ -132,7 +132,7 @@ end
 ---@return table<string, any> environment
 local function newEnv(id)
 	return setmetatable({
-		VERSION = "1.2.0-dbg",
+		VERSION = "dev-dbg",
 		script = instanceFromId[id],
 		require = function (module)
 			return requireModuleInternal(module, instanceFromId[id])
@@ -4178,7 +4178,7 @@ local onRejoin = TS.async(function()\
 \9end\
 end)\
 local BASE_URL = \"https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/\"\
-local RELOAD_URL = BASE_URL .. (string.sub(VERSION, 1, 1) == \"v\" and \"latest.lua\" or \"snapshot.lua\")\
+local RELOAD_URL = BASE_URL .. ({ string.match(VERSION, \"%.\") } ~= nil and \"latest.lua\" or \"snapshot.lua\")\
 function queueExecution()\
 \9local _result = syn\
 \9if _result ~= nil then\
