@@ -45,7 +45,7 @@ async function onRejoin() {
 }
 
 const BASE_URL = "https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/";
-const RELOAD_URL = BASE_URL + (VERSION.sub(1, 1) === "v" ? "latest.lua" : "snapshot.lua");
+const RELOAD_URL = BASE_URL + (VERSION.match("%.") !== undefined ? "latest.lua" : "snapshot.lua");
 
 function queueExecution() {
 	const queueFn = syn?.queue_on_teleport ?? queue_on_teleport;
