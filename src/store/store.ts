@@ -2,6 +2,7 @@ import Rodux from "@rbxts/rodux";
 import { dashboardReducer } from "store/reducers/dashboard.reducer";
 import { jobsReducer } from "store/reducers/jobs.reducer";
 import { optionsReducer } from "store/reducers/options.reducer";
+import { scriptsReducer } from "store/reducers/scripts.reducer";
 
 export type RootReducer = typeof rootReducer;
 export type RootStore = Rodux.Store<RootState, Rodux.Action>;
@@ -11,6 +12,7 @@ const rootReducer = Rodux.combineReducers({
 	dashboard: dashboardReducer,
 	jobs: jobsReducer,
 	options: optionsReducer,
+	scripts: scriptsReducer,
 });
 
 export function configureStore(initialState?: Partial<RootState>) {

@@ -1,7 +1,6 @@
-import { HttpService, Players } from "@rbxts/services";
+import { HttpService } from "@rbxts/services";
 import { getStore } from "jobs/helpers/job-store";
 import { RootState } from "store/store";
-import { setInterval } from "utils/timeout";
 
 if (makefolder && !isfolder("_orca")) {
 	makefolder("_orca");
@@ -29,17 +28,16 @@ export function persistentState<T extends object>(name: string, selector: (state
 	try {
 		const serializedState = read(`_orca/${name}.json`);
 
-		if (serializedState === undefined) {
-			write(`_orca/${name}.json`, HttpService.JSONEncode(defaultValue));
-			return defaultValue;
-		}
-		const value = HttpService.JSONDecode(serializedState) as T;
-
 		autosave(name, selector).catch(() => {
 			warn("Autosave failed");
 		});
 
-		return value;
+		if (serializedState === undefined) {
+			write(`_orca/${name}.json`, HttpService.JSONEncode(defaultValue));
+			return defaultValue;
+		}
+
+		return HttpService.JSONDecode(serializedState) as T;
 	} catch (err) {
 		warn(`Failed to load ${name}.json: ${err}`);
 		return defaultValue;
@@ -49,19 +47,16 @@ export function persistentState<T extends object>(name: string, selector: (state
 async function autosave(name: string, selector: (state: RootState) => object) {
 	const store = await getStore();
 
-	function save() {
-		const state = selector(store.getState());
-		write(`_orca/${name}.json`, HttpService.JSONEncode(state));
+	function save(slice: object) {
+		write(`_orca/${name}.json`, HttpService.JSONEncode(slice));
 	}
 
-	setInterval(save, 60000);
-
-	let wasOpen = store.getState().dashboard.isOpen;
+	let previous = selector(store.getState());
 	store.changed.connect((newState: RootState) => {
-		const isOpen = newState.dashboard.isOpen;
-		if (wasOpen && !isOpen) {
-			save();
+		const current = selector(newState);
+		if (current !== previous) {
+			previous = current;
+			save(current);
 		}
-		wasOpen = isOpen;
 	});
 }

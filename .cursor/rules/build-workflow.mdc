@@ -1,0 +1,29 @@
+---
+description: Build workflow for this roblox-ts project
+alwaysApply: true
+---
+
+# Build Workflow
+
+Before running `npm run bundle`, always run `npm run typecheck` first and fix any errors.
+
+```
+# 1. Lint first — fast, no file output, catches type + roblox-ts + style errors
+npm run lint
+
+# 2. Only proceed if lint passes
+npm run bundle
+```
+
+## Why
+
+- `lint` runs ESLint with `@typescript-eslint` + `eslint-plugin-roblox-ts` — catches TS type errors and roblox-ts-specific violations without compiling or building
+- `bundle` runs compile → rojo build → remodel, which takes longer and is wasted if there are type errors
+- roblox-ts enforces extra restrictions on top of TypeScript (e.g. no `script` as identifier, arrays use `.size()` not `.length`, no `endsWith`/`slice` — use Lua string methods like `.sub()` instead)
+
+## Common roblox-ts Gotchas
+
+- `array.size()` not `array.length`
+- `str.sub(1, -5)` not `str.slice(0, -4)` (Lua strings are 1-indexed)
+- `str.sub(-4) === ".lua"` not `str.endsWith(".lua")`
+- `script` is a reserved Lua global — never use it as a variable/parameter name

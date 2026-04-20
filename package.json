@@ -1,6 +1,8 @@
 {
 	"name": "orca",
 	"scripts": {
+		"typecheck": "npx tsc --noEmit",
+		"lint": "npx eslint src --ext .ts,.tsx",
 		"compile": "npx rbxtsc --verbose --type=model",
 		"watch": "npx rbxtsc -w",
 		"build": "rojo build default.project.json --output \"Orca.rbxm\"",

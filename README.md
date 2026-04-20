@@ -45,15 +45,8 @@ Press `K` to open or close Orca. A 1080p monitor or above is recommended.
 
 ### 📰 Scripts
 
-A small collection of community favorites:
-
-- **Solaris** — https://solarishub.dev
-- **V.G Hub** — https://github.com/1201for
-- **EvoV2** — https://projectevo.xyz
-- **CMD-X** — https://github.com/CMD-X
-- **Infinite Yield** — https://github.com/EdgeIY
-- **Dex Explorer** — https://github.com/LorekeeperZinnia
-- **Unnamed ESP** — https://github.com/ic3w0lf22
+- **Infinite Yield** — one-click loader for [EdgeIY/infiniteyield](https://github.com/EdgeIY/infiniteyield)
+- **Script Manager** — write or paste custom Lua scripts, save them to `_orca/scripts/`, and run them any time
 
 ### ⚙️ Options
 
@@ -66,7 +59,7 @@ A small collection of community favorites:
 
 ## ✅ Tested executors
 
-- Xeno (Reccomended)
+- Xeno (Recommended)
 - Solara
 - JJSploit
 - Delta
