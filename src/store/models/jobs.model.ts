@@ -32,6 +32,8 @@ export type JobsState = {
 	espFill: JobWithValue<number>;
 	espOutline: JobWithValue<number>;
 	espHue: JobWithValue<number>;
+	/** Camera field of view (degrees). Separate from ESP; applied to `Workspace.CurrentCamera`. */
+	cameraFov: JobWithValue<number>;
 
 	teleport: Job;
 	hide: Job;

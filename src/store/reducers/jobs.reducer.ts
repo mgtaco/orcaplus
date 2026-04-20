@@ -19,6 +19,7 @@ const initialState: JobsState = {
 	espFill: { value: 10, active: false },
 	espOutline: { value: 100, active: false },
 	espHue: { value: 180, active: false },
+	cameraFov: { value: 70, active: false },
 
 	teleport: { active: false },
 	hide: { active: false },
