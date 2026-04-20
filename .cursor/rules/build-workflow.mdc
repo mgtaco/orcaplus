@@ -5,21 +5,27 @@ alwaysApply: true
 
 # Build Workflow
 
-Before running `npm run bundle`, always run `npm run typecheck` first and fix any errors.
+## After every code change
+
+When you edit source files in this repo, **finish by running `npm run verify`** (or the same steps manually: `npm run lint` then `npm run bundle`), and fix any failures before you stop. `bundle` runs **compile → rojo build → remodel** (`npm run compile && npm run build && …`), so it validates the full pipeline.
+
+Optional: run `npm run typecheck` before `bundle` for a fast TypeScript-only check (see below).
 
 ```
-# 1. Lint first — fast, no file output, catches type + roblox-ts + style errors
-npm run lint
-
-# 2. Only proceed if lint passes
-npm run bundle
+npm run verify
 ```
+
+## Before `bundle` (recommended order)
+
+1. **Lint** — fast; catches style + many TS / roblox-ts issues via ESLint.
+2. **Typecheck** (optional) — `npm run typecheck` (`tsc --noEmit`).
+3. **Bundle** — only when lint (and typecheck, if you ran it) pass.
 
 ## Why
 
-- `lint` runs ESLint with `@typescript-eslint` + `eslint-plugin-roblox-ts` — catches TS type errors and roblox-ts-specific violations without compiling or building
-- `bundle` runs compile → rojo build → remodel, which takes longer and is wasted if there are type errors
-- roblox-ts enforces extra restrictions on top of TypeScript (e.g. no `script` as identifier, arrays use `.size()` not `.length`, no `endsWith`/`slice` — use Lua string methods like `.sub()` instead)
+- `lint` uses `@typescript-eslint` + `eslint-plugin-roblox-ts`.
+- `bundle` compiles with `rbxtsc`, builds `Orca.rbxm` with Rojo, then runs Remodel — slow; avoid running it when lint already fails.
+- roblox-ts adds constraints on top of TypeScript (e.g. no `script` as identifier, arrays use `.size()` not `.length`, use Lua string `.sub()` instead of `slice`/`endsWith`).
 
 ## Common roblox-ts Gotchas
 

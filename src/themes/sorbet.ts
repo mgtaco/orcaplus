@@ -139,9 +139,11 @@ export const sorbet: Theme = {
 		players: {
 			...view,
 			highlight: {
+				espEnabled: blueAccent,
 				esp: redAccent,
 				espName: blueAccent,
 				espHealth: redAccent,
+				espTracers: mixedAccent,
 				teleport: redAccent,
 				hide: blueAccent,
 				kill: redAccent,

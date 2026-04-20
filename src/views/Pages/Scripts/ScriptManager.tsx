@@ -188,9 +188,7 @@ function ScriptManager() {
 
 	const listTopOffset = HEADER_HEIGHT + 1 + (showForm ? FORM_HEIGHT + 1 : 0);
 	const canvasH =
-		scripts.size() > 0
-			? INNER_PAD * 2 + scripts.size() * (ROW_HEIGHT + ROW_GAP) - ROW_GAP
-			: INNER_PAD * 2 + 64;
+		scripts.size() > 0 ? INNER_PAD * 2 + scripts.size() * (ROW_HEIGHT + ROW_GAP) - ROW_GAP : INNER_PAD * 2 + 64;
 
 	return (
 		<Canvas
@@ -300,7 +298,7 @@ function ScriptManager() {
 						<Border color={BORDER_COLOR} radius={8} transparency={0.3} />
 						<textbox
 							Text=""
-							PlaceholderText={"-- paste or write your Lua script here\nprint(\"Hello from Orca!\")"}
+							PlaceholderText={'-- paste or write your Lua script here\nprint("Hello from Orca!")'}
 							PlaceholderColor3={TEXT_MUTED}
 							Font="Code"
 							TextSize={13}
@@ -358,11 +356,7 @@ function ScriptManager() {
 			)}
 
 			{/* Script list */}
-			<Canvas
-				size={new UDim2(1, 0, 1, -listTopOffset)}
-				position={px(0, listTopOffset)}
-				clipsDescendants
-			>
+			<Canvas size={new UDim2(1, 0, 1, -listTopOffset)} position={px(0, listTopOffset)} clipsDescendants>
 				<scrollingframe
 					Size={scale(1, 1)}
 					CanvasSize={new UDim2(0, 0, 0, canvasH)}
@@ -395,7 +389,9 @@ function ScriptManager() {
 							onDelete={() => {
 								try {
 									delfile(`${SCRIPTS_FOLDER}/${entry.filename}.lua`);
-								} catch {}
+								} catch (e) {
+									warn(`[Orca] Could not delete script file: ${e}`);
+								}
 								dispatch(removeScript(entry.id));
 							}}
 						/>

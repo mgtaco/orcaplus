@@ -24,9 +24,11 @@ export type JobsState = {
 	ghost: Job;
 	godmode: Job;
 	freecam: Job;
+	espEnabled: Job;
 	esp: Job;
 	espName: Job;
 	espHealth: Job;
+	espTracers: Job;
 	espFill: JobWithValue<number>;
 	espOutline: JobWithValue<number>;
 	espHue: JobWithValue<number>;

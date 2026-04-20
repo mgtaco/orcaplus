@@ -82,9 +82,11 @@ export interface Theme {
 			};
 			button: Omit<ButtonTheme, "accent">;
 			highlight: {
+				espEnabled: Color3;
 				esp: Color3;
 				espName: Color3;
 				espHealth: Color3;
+				espTracers: Color3;
 				teleport: Color3;
 				hide: Color3;
 				kill: Color3;

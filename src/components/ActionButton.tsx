@@ -70,22 +70,22 @@ function ActionButton({ action, hint, theme, image, label, position, size, canDe
 			borderColor={foreground}
 			transparency={theme.button.backgroundTransparency}
 		>
-		{image !== undefined ? (
-			<imagelabel
-				Image={image}
-				ScaleType={Enum.ScaleType.Fit}
-				ImageTransparency={useSpring(
-					active
-						? 0
-						: hovered
-						? theme.button.foregroundTransparency - 0.25
-						: theme.button.foregroundTransparency,
-					{},
-				)}
-				Size={new UDim2(1, -16, 1, -10)}
-				Position={new UDim2(0, 8, 0, 5)}
-				BackgroundTransparency={1}
-			/>
+			{image !== undefined ? (
+				<imagelabel
+					Image={image}
+					ScaleType={Enum.ScaleType.Fit}
+					ImageTransparency={useSpring(
+						active
+							? 0
+							: hovered
+							? theme.button.foregroundTransparency - 0.25
+							: theme.button.foregroundTransparency,
+						{},
+					)}
+					Size={new UDim2(1, -16, 1, -10)}
+					Position={new UDim2(0, 8, 0, 5)}
+					BackgroundTransparency={1}
+				/>
 			) : (
 				<textlabel
 					Text={label ?? ""}

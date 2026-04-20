@@ -1,4 +1,4 @@
-import { Players, RunService } from "@rbxts/services";
+import { Players, RunService, Workspace } from "@rbxts/services";
 import { getStore, onJobChange } from "jobs/helpers/job-store";
 
 const LOCAL_PLAYER = Players.LocalPlayer;
@@ -11,6 +11,7 @@ let espConnection: RBXScriptConnection | undefined;
 const highlights = new Map<Model, Highlight>();
 const nameTags = new Map<Model, BillboardGui>();
 const healthBars = new Map<Model, { bar: BillboardGui; fill: Frame }>();
+const tracerLines = new Map<Model, DrawingLine>();
 
 function hueToColor(hue: number): Color3 {
 	return Color3.fromHSV(hue / 360, 1, 1);
@@ -52,13 +53,6 @@ function removeHighlight(character: Model) {
 	if (!h) return;
 	h.Destroy();
 	highlights.delete(character);
-}
-
-function applyColorToAll(color: Color3) {
-	highlights.forEach((h) => {
-		h.FillColor = color;
-		h.OutlineColor = color;
-	});
 }
 
 // ── Name tags ─────────────────────────────────────────────────────────────────
@@ -153,12 +147,53 @@ function removeHealthBar(character: Model) {
 	healthBars.delete(character);
 }
 
+// ── Tracers ───────────────────────────────────────────────────────────────────
+
+function addTracer(character: Model, color: Color3) {
+	if (!Drawing) return;
+	let line = tracerLines.get(character);
+	if (!line) {
+		line = Drawing.new("Line");
+		line.Thickness = 1;
+		line.Visible = false;
+		tracerLines.set(character, line);
+	}
+	line.Color = color;
+}
+
+function removeTracer(character: Model) {
+	const line = tracerLines.get(character);
+	if (!line) return;
+	line.Remove();
+	tracerLines.delete(character);
+}
+
+function updateTracerPositions() {
+	if (!Drawing || tracerLines.size() === 0) return;
+	const camera = Workspace.CurrentCamera;
+	if (!camera) return;
+	const from = new Vector2(camera.ViewportSize.X / 2, camera.ViewportSize.Y);
+	tracerLines.forEach((line, character) => {
+		const root = character.FindFirstChild("HumanoidRootPart") as BasePart | undefined;
+		if (!root) {
+			line.Visible = false;
+			return;
+		}
+		const [screenPos, onScreen] = camera.WorldToViewportPoint(root.Position);
+		line.From = from;
+		line.To = new Vector2(screenPos.X, screenPos.Y);
+		line.Visible = onScreen;
+	});
+}
+
 // ── Sync loop ─────────────────────────────────────────────────────────────────
 
 interface EspState {
+	enabled: boolean;
 	highlight: boolean;
 	name: boolean;
 	health: boolean;
+	tracers: boolean;
 	fill: number;
 	outline: number;
 	color: Color3;
@@ -191,27 +226,51 @@ function syncAll(state: EspState) {
 		} else {
 			removeHealthBar(character);
 		}
+
+		if (state.tracers) {
+			addTracer(character, state.color);
+		} else {
+			removeTracer(character);
+		}
 	}
 
 	// Clean up characters that left
-	highlights.forEach((_, c) => { if (!seen.has(c)) removeHighlight(c); });
-	nameTags.forEach((_, c) => { if (!seen.has(c)) removeNameTag(c); });
-	healthBars.forEach((_, c) => { if (!seen.has(c)) removeHealthBar(c); });
+	highlights.forEach((_, c) => {
+		if (!seen.has(c)) removeHighlight(c);
+	});
+	nameTags.forEach((_, c) => {
+		if (!seen.has(c)) removeNameTag(c);
+	});
+	healthBars.forEach((_, c) => {
+		if (!seen.has(c)) removeHealthBar(c);
+	});
+	tracerLines.forEach((_, c) => {
+		if (!seen.has(c)) removeTracer(c);
+	});
 }
 
 function clearAll() {
 	highlights.forEach((_, c) => removeHighlight(c));
 	nameTags.forEach((_, c) => removeNameTag(c));
 	healthBars.forEach((_, c) => removeHealthBar(c));
+	tracerLines.forEach((_, c) => removeTracer(c));
 }
 
-function startLoop(state: EspState) {
+/**
+ * Heartbeat must call `getLatest()` every frame — do not capture a snapshot of `EspState`
+ * in the connection closure, or fill/outline/hue will stay stale until another `refresh()`
+ * (e.g. keybind + slider changes look “stuck” on default cyan / wrong color).
+ */
+function startLoop(getLatest: () => EspState) {
 	if (espConnection) {
 		espConnection.Disconnect();
 		espConnection = undefined;
 	}
-	syncAll(state);
-	espConnection = RunService.Heartbeat.Connect(() => syncAll(state));
+	syncAll(getLatest());
+	espConnection = RunService.Heartbeat.Connect(() => {
+		syncAll(getLatest());
+		updateTracerPositions();
+	});
 }
 
 function stopLoop() {
@@ -222,7 +281,7 @@ function stopLoop() {
 }
 
 function anyActive(state: EspState) {
-	return state.highlight || state.name || state.health;
+	return state.enabled && (state.highlight || state.name || state.health || state.tracers);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -233,9 +292,11 @@ async function main() {
 	const getState = (): EspState => {
 		const jobs = store.getState().jobs;
 		return {
+			enabled: jobs.espEnabled.active,
 			highlight: jobs.esp.active,
 			name: jobs.espName.active,
 			health: jobs.espHealth.active,
+			tracers: jobs.espTracers.active,
 			fill: jobs.espFill.value,
 			outline: jobs.espOutline.value,
 			color: hueToColor(jobs.espHue.value),
@@ -245,7 +306,7 @@ async function main() {
 	const refresh = () => {
 		const state = getState();
 		if (anyActive(state)) {
-			startLoop(state);
+			startLoop(getState);
 		} else {
 			stopLoop();
 			clearAll();
@@ -257,20 +318,20 @@ async function main() {
 			removeHighlight(player.Character);
 			removeNameTag(player.Character);
 			removeHealthBar(player.Character);
+			removeTracer(player.Character);
 		}
 	});
 
 	if (anyActive(getState())) refresh();
 
+	await onJobChange("espEnabled", refresh);
 	await onJobChange("esp", refresh);
 	await onJobChange("espName", refresh);
 	await onJobChange("espHealth", refresh);
+	await onJobChange("espTracers", refresh);
 	await onJobChange("espFill", refresh);
 	await onJobChange("espOutline", refresh);
-	await onJobChange("espHue", () => {
-		applyColorToAll(getState().color);
-		refresh();
-	});
+	await onJobChange("espHue", refresh);
 }
 
 main().catch((err) => {

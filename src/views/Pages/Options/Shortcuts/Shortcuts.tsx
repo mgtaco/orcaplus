@@ -103,7 +103,7 @@ function Shortcuts() {
 					/>
 					<ShortcutItem
 						onActivate={() => {
-							dispatch(setJobActive("esp", !store.getState().jobs.esp.active));
+							dispatch(setJobActive("espEnabled", !store.getState().jobs.espEnabled.active));
 						}}
 						onSelect={setSelectedItem}
 						selectedItem={selectedItem}

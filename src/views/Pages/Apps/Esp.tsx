@@ -24,6 +24,15 @@ function Esp() {
 	const outlineJob = useAppSelector((state) => state.jobs.espOutline);
 	const hueJob = useAppSelector((state) => state.jobs.espHue);
 
+	// Sub-toggle active states — used to enforce the "at least 1 active" rule
+	const espActive = useAppSelector((state) => state.jobs.esp.active);
+	const espNameActive = useAppSelector((state) => state.jobs.espName.active);
+	const espHealthActive = useAppSelector((state) => state.jobs.espHealth.active);
+	const espTracersActive = useAppSelector((state) => state.jobs.espTracers.active);
+
+	// Number of sub-toggles currently on. When only 1 remains, that button cannot be deactivated.
+	const subActiveCount = [espActive, espNameActive, espHealthActive, espTracersActive].filter((v) => v).size();
+
 	const [fillValue, setFillValue] = useBinding(fillJob.value);
 	const [outlineValue, setOutlineValue] = useBinding(outlineJob.value);
 	const [hueValue, setHueValue] = useBinding(hueJob.value);
@@ -45,6 +54,17 @@ function Esp() {
 				TextYAlignment="Top"
 				Position={px(24, 24)}
 				BackgroundTransparency={1}
+			/>
+
+			{/* Enable ESP master toggle — top right of heading row */}
+			<ActionButton
+				action="espEnabled"
+				hint="<font face='GothamBlack'>Enable ESP</font> — master toggle for all ESP features"
+				theme={theme}
+				label="Enable"
+				position={new UDim2(1, -114, 0, 20)}
+				size={px(90, 28)}
+				canDeactivate
 			/>
 
 			{/* Live preview box */}
@@ -98,7 +118,11 @@ function Esp() {
 				</BrightSlider>
 
 				<Canvas size={px(73, 49)} position={px(205, 0)}>
-					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
+					<Fill
+						color={theme.button.background}
+						radius={8}
+						transparency={theme.button.backgroundTransparency}
+					/>
 					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
 					<textlabel
 						Text="Fill"
@@ -145,12 +169,16 @@ function Esp() {
 				</BrightSlider>
 
 				<Canvas size={px(73, 49)} position={px(205, 0)}>
-					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
+					<Fill
+						color={theme.button.background}
+						radius={8}
+						transparency={theme.button.backgroundTransparency}
+					/>
 					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
-				<textlabel
-					Text="Outline"
-					Font="GothamBold"
-					TextSize={15}
+					<textlabel
+						Text="Outline"
+						Font="GothamBold"
+						TextSize={15}
 						TextColor3={theme.button.foreground}
 						TextTransparency={theme.button.foregroundTransparency}
 						TextXAlignment="Center"
@@ -195,7 +223,11 @@ function Esp() {
 				</BrightSlider>
 
 				<Canvas size={px(73, 49)} position={px(205, 0)}>
-					<Fill color={theme.button.background} radius={8} transparency={theme.button.backgroundTransparency} />
+					<Fill
+						color={theme.button.background}
+						radius={8}
+						transparency={theme.button.backgroundTransparency}
+					/>
 					{theme.button.outlined && <Border color={theme.button.foreground} radius={8} transparency={0.8} />}
 					<textlabel
 						Text="Hue"
@@ -211,36 +243,45 @@ function Esp() {
 				</Canvas>
 			</Canvas>
 
-		{/* Toggle buttons — Highlight / Name / Health */}
-		<Canvas size={px(278, 49)} position={px(24, 363)}>
-			<ActionButton
-				action="esp"
-				hint="<font face='GothamBlack'>Highlight</font> other players with ESP outlines"
-				theme={theme}
-				label="Highlight"
-				position={px(0, 0)}
-				size={px(84, 49)}
-				canDeactivate
-			/>
-			<ActionButton
-				action="espName"
-				hint="Show <font face='GothamBlack'>name tags</font> above other players"
-				theme={theme}
-				label="Names"
-				position={px(97, 0)}
-				size={px(84, 49)}
-				canDeactivate
-			/>
-			<ActionButton
-				action="espHealth"
-				hint="Show <font face='GothamBlack'>health bars</font> above other players"
-				theme={theme}
-				label="Health"
-				position={px(194, 0)}
-				size={px(84, 49)}
-				canDeactivate
-			/>
-		</Canvas>
+			{/* Toggle buttons — Highlight / Names / Health / Tracers (4 × 62px with 10px gaps) */}
+			<Canvas size={px(278, 49)} position={px(24, 363)}>
+				<ActionButton
+					action="esp"
+					hint="<font face='GothamBlack'>Highlight</font> other players with ESP outlines"
+					theme={theme}
+					label="Highlight"
+					position={px(0, 0)}
+					size={px(62, 49)}
+					canDeactivate={subActiveCount > 1}
+				/>
+				<ActionButton
+					action="espName"
+					hint="Show <font face='GothamBlack'>name tags</font> above other players"
+					theme={theme}
+					label="Names"
+					position={px(72, 0)}
+					size={px(62, 49)}
+					canDeactivate={subActiveCount > 1}
+				/>
+				<ActionButton
+					action="espHealth"
+					hint="Show <font face='GothamBlack'>health bars</font> above other players"
+					theme={theme}
+					label="Health"
+					position={px(144, 0)}
+					size={px(62, 49)}
+					canDeactivate={subActiveCount > 1}
+				/>
+				<ActionButton
+					action="espTracers"
+					hint="Draw <font face='GothamBlack'>tracers</font> from screen edge to each player"
+					theme={theme}
+					label="Tracers"
+					position={px(216, 0)}
+					size={px(62, 49)}
+					canDeactivate={subActiveCount > 1}
+				/>
+			</Canvas>
 		</Card>
 	);
 }

@@ -157,9 +157,11 @@ export const obsidian: Theme = {
 			transparency: 0.7,
 			dropshadowTransparency: 0.65,
 			highlight: {
+				espEnabled: accent,
 				esp: accent,
 				espName: accent,
 				espHealth: accent,
+				espTracers: accent,
 				teleport: accent,
 				hide: accent,
 				kill: accent,
