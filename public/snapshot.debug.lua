@@ -5,7 +5,7 @@
 --
 -- Author: 0866
 -- License: MIT
--- Version: "26d108a-dbg"
+-- Version: "26d111a-dbg"
 -- GitHub: https://github.com/richie0866/orca
 --]]
 
@@ -132,7 +132,7 @@ end
 ---@return table<string, any> environment
 local function newEnv(id)
 	return setmetatable({
-		VERSION = "26d108a-dbg",
+		VERSION = "26d111a-dbg",
 		script = instanceFromId[id],
 		require = function (module)
 			return requireModuleInternal(module, instanceFromId[id])
@@ -2313,6 +2313,33 @@ main():catch(function(err)\
 end)\
 ", '@'.."Orca.jobs.acrylic")) setfenv(fn, newEnv("Orca.jobs.acrylic")) return fn() end)
 
+newModule("camera-fov", "LocalScript", "Orca.jobs.camera-fov", "Orca.jobs", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.include.RuntimeLib)\
+local Workspace = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).Workspace\
+local _job_store = TS.import(script, script.Parent, \"helpers\", \"job-store\")\
+local getStore = _job_store.getStore\
+local onJobChange = _job_store.onJobChange\
+local function applyFov(fov)\
+\9local cam = Workspace.CurrentCamera\
+\9if cam then\
+\9\9cam.FieldOfView = math.clamp(fov, 1, 120)\
+\9end\
+end\
+local main = TS.async(function()\
+\9local store = TS.await(getStore())\
+\9applyFov(store:getState().jobs.cameraFov.value)\
+\9Workspace:GetPropertyChangedSignal(\"CurrentCamera\"):Connect(function()\
+\9\9applyFov(store:getState().jobs.cameraFov.value)\
+\9end)\
+\9TS.await(onJobChange(\"cameraFov\", function(job)\
+\9\9applyFov(job.value)\
+\9end))\
+end)\
+main():catch(function(err)\
+\9warn(\"[camera-fov] \" .. tostring(err))\
+end)\
+", '@'.."Orca.jobs.camera-fov")) setfenv(fn, newEnv("Orca.jobs.camera-fov")) return fn() end)
+
 newInstance("character", "Folder", "Orca.jobs.character", "Orca.jobs")
 
 newModule("flight", "LocalScript", "Orca.jobs.character.flight", "Orca.jobs.character", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
@@ -3465,6 +3492,7 @@ local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
 local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
 local Players = _services.Players\
 local RunService = _services.RunService\
+local Workspace = _services.Workspace\
 local _job_store = TS.import(script, script.Parent.Parent, \"helpers\", \"job-store\")\
 local getStore = _job_store.getStore\
 local onJobChange = _job_store.onJobChange\
@@ -3476,6 +3504,7 @@ local espConnection\
 local highlights = {}\
 local nameTags = {}\
 local healthBars = {}\
+local tracerLines = {}\
 local function hueToColor(hue)\
 \9return Color3.fromHSV(hue / 360, 1, 1)\
 end\
@@ -3525,17 +3554,6 @@ local function removeHighlight(character)\
 \9-- ▼ Map.delete ▼\
 \9highlights[character] = nil\
 \9-- ▲ Map.delete ▲\
-end\
-local function applyColorToAll(color)\
-\9local _arg0 = function(h)\
-\9\9h.FillColor = color\
-\9\9h.OutlineColor = color\
-\9end\
-\9-- ▼ ReadonlyMap.forEach ▼\
-\9for _k, _v in pairs(highlights) do\
-\9\9_arg0(_v, _k, highlights)\
-\9end\
-\9-- ▲ ReadonlyMap.forEach ▲\
 end\
 local function addNameTag(character, player, color)\
 \9if nameTags[character] ~= nil then\
@@ -3635,6 +3653,68 @@ local function removeHealthBar(character)\
 \9healthBars[character] = nil\
 \9-- ▲ Map.delete ▲\
 end\
+local function addTracer(character, color)\
+\9if not Drawing then\
+\9\9return nil\
+\9end\
+\9local line = tracerLines[character]\
+\9if not line then\
+\9\9line = Drawing.new(\"Line\")\
+\9\9line.Thickness = 1\
+\9\9line.Visible = false\
+\9\9local _line = line\
+\9\9-- ▼ Map.set ▼\
+\9\9tracerLines[character] = _line\
+\9\9-- ▲ Map.set ▲\
+\9end\
+\9line.Color = color\
+end\
+local function removeTracer(character)\
+\9local line = tracerLines[character]\
+\9if not line then\
+\9\9return nil\
+\9end\
+\9line:Remove()\
+\9-- ▼ Map.delete ▼\
+\9tracerLines[character] = nil\
+\9-- ▲ Map.delete ▲\
+end\
+local function updateTracerPositions()\
+\9local _condition = not Drawing\
+\9if not _condition then\
+\9\9-- ▼ ReadonlyMap.size ▼\
+\9\9local _size = 0\
+\9\9for _ in pairs(tracerLines) do\
+\9\9\9_size += 1\
+\9\9end\
+\9\9-- ▲ ReadonlyMap.size ▲\
+\9\9_condition = _size == 0\
+\9end\
+\9if _condition then\
+\9\9return nil\
+\9end\
+\9local camera = Workspace.CurrentCamera\
+\9if not camera then\
+\9\9return nil\
+\9end\
+\9local from = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)\
+\9local _arg0 = function(line, character)\
+\9\9local root = character:FindFirstChild(\"HumanoidRootPart\")\
+\9\9if not root then\
+\9\9\9line.Visible = false\
+\9\9\9return nil\
+\9\9end\
+\9\9local screenPos, onScreen = camera:WorldToViewportPoint(root.Position)\
+\9\9line.From = from\
+\9\9line.To = Vector2.new(screenPos.X, screenPos.Y)\
+\9\9line.Visible = onScreen\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(tracerLines) do\
+\9\9_arg0(_v, _k, tracerLines)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
+end\
 local function syncAll(state)\
 \9local seen = {}\
 \9for _, player in ipairs(Players:GetPlayers()) do\
@@ -3662,6 +3742,11 @@ local function syncAll(state)\
 \9\9\9addHealthBar(character, state.color)\
 \9\9else\
 \9\9\9removeHealthBar(character)\
+\9\9end\
+\9\9if state.tracers then\
+\9\9\9addTracer(character, state.color)\
+\9\9else\
+\9\9\9removeTracer(character)\
 \9\9end\
 \9end\
 \9local _arg0 = function(_, c)\
@@ -3694,6 +3779,16 @@ local function syncAll(state)\
 \9\9_arg0_2(_v, _k, healthBars)\
 \9end\
 \9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_3 = function(_, c)\
+\9\9if not (seen[c] ~= nil) then\
+\9\9\9removeTracer(c)\
+\9\9end\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(tracerLines) do\
+\9\9_arg0_3(_v, _k, tracerLines)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
 end\
 local function clearAll()\
 \9local _arg0 = function(_, c)\
@@ -3720,15 +3815,24 @@ local function clearAll()\
 \9\9_arg0_2(_v, _k, healthBars)\
 \9end\
 \9-- ▲ ReadonlyMap.forEach ▲\
+\9local _arg0_3 = function(_, c)\
+\9\9return removeTracer(c)\
+\9end\
+\9-- ▼ ReadonlyMap.forEach ▼\
+\9for _k, _v in pairs(tracerLines) do\
+\9\9_arg0_3(_v, _k, tracerLines)\
+\9end\
+\9-- ▲ ReadonlyMap.forEach ▲\
 end\
-local function startLoop(state)\
+local function startLoop(getLatest)\
 \9if espConnection then\
 \9\9espConnection:Disconnect()\
 \9\9espConnection = nil\
 \9end\
-\9syncAll(state)\
+\9syncAll(getLatest())\
 \9espConnection = RunService.Heartbeat:Connect(function()\
-\9\9return syncAll(state)\
+\9\9syncAll(getLatest())\
+\9\9updateTracerPositions()\
 \9end)\
 end\
 local function stopLoop()\
@@ -3738,16 +3842,18 @@ local function stopLoop()\
 \9end\
 end\
 local function anyActive(state)\
-\9return state.highlight or (state.name or state.health)\
+\9return state.enabled and (state.highlight or (state.name or (state.health or state.tracers)))\
 end\
 local main = TS.async(function()\
 \9local store = TS.await(getStore())\
 \9local getState = function()\
 \9\9local jobs = store:getState().jobs\
 \9\9return {\
+\9\9\9enabled = jobs.espEnabled.active,\
 \9\9\9highlight = jobs.esp.active,\
 \9\9\9name = jobs.espName.active,\
 \9\9\9health = jobs.espHealth.active,\
+\9\9\9tracers = jobs.espTracers.active,\
 \9\9\9fill = jobs.espFill.value,\
 \9\9\9outline = jobs.espOutline.value,\
 \9\9\9color = hueToColor(jobs.espHue.value),\
@@ -3756,7 +3862,7 @@ local main = TS.async(function()\
 \9local refresh = function()\
 \9\9local state = getState()\
 \9\9if anyActive(state) then\
-\9\9\9startLoop(state)\
+\9\9\9startLoop(getState)\
 \9\9else\
 \9\9\9stopLoop()\
 \9\9\9clearAll()\
@@ -3767,20 +3873,20 @@ local main = TS.async(function()\
 \9\9\9removeHighlight(player.Character)\
 \9\9\9removeNameTag(player.Character)\
 \9\9\9removeHealthBar(player.Character)\
+\9\9\9removeTracer(player.Character)\
 \9\9end\
 \9end)\
 \9if anyActive(getState()) then\
 \9\9refresh()\
 \9end\
+\9TS.await(onJobChange(\"espEnabled\", refresh))\
 \9TS.await(onJobChange(\"esp\", refresh))\
 \9TS.await(onJobChange(\"espName\", refresh))\
 \9TS.await(onJobChange(\"espHealth\", refresh))\
+\9TS.await(onJobChange(\"espTracers\", refresh))\
 \9TS.await(onJobChange(\"espFill\", refresh))\
 \9TS.await(onJobChange(\"espOutline\", refresh))\
-\9TS.await(onJobChange(\"espHue\", function()\
-\9\9applyColorToAll(getState().color)\
-\9\9refresh()\
-\9end))\
+\9TS.await(onJobChange(\"espHue\", refresh))\
 end)\
 main():catch(function(err)\
 \9warn(\"[esp-worker] \" .. tostring(err))\
@@ -4178,7 +4284,7 @@ local onRejoin = TS.async(function()\
 \9end\
 end)\
 local BASE_URL = \"https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/\"\
-local RELOAD_URL = BASE_URL .. (string.sub(VERSION, 1, 1) == \"v\" and \"latest.lua\" or \"snapshot.lua\")\
+local RELOAD_URL = BASE_URL .. ({ string.match(VERSION, \"%.\") } ~= nil and \"latest.lua\" or \"snapshot.lua\")\
 function queueExecution()\
 \9local _result = syn\
 \9if _result ~= nil then\
@@ -4401,6 +4507,31 @@ return {\
 }\
 ", '@'.."Orca.store.actions.options.action")) setfenv(fn, newEnv("Orca.store.actions.options.action")) return fn() end)
 
+newModule("scripts.action", "ModuleScript", "Orca.store.actions.scripts.action", "Orca.store.actions", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
+local Rodux = TS.import(script, TS.getModule(script, \"@rbxts\", \"rodux\").src)\
+local addScript = Rodux.makeActionCreator(\"scripts/add\", function(entry)\
+\9return {\
+\9\9script = entry,\
+\9}\
+end)\
+local removeScript = Rodux.makeActionCreator(\"scripts/remove\", function(id)\
+\9return {\
+\9\9id = id,\
+\9}\
+end)\
+local updateScript = Rodux.makeActionCreator(\"scripts/update\", function(entry)\
+\9return {\
+\9\9script = entry,\
+\9}\
+end)\
+return {\
+\9addScript = addScript,\
+\9removeScript = removeScript,\
+\9updateScript = updateScript,\
+}\
+", '@'.."Orca.store.actions.scripts.action")) setfenv(fn, newEnv("Orca.store.actions.scripts.action")) return fn() end)
+
 newInstance("models", "Folder", "Orca.store.models", "Orca.store")
 
 newModule("dashboard.model", "ModuleScript", "Orca.store.models.dashboard.model", "Orca.store.models", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
@@ -4444,11 +4575,13 @@ newModule("jobs.model", "ModuleScript", "Orca.store.models.jobs.model", "Orca.st
 newModule("options.model", "ModuleScript", "Orca.store.models.options.model", "Orca.store.models", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 ", '@'.."Orca.store.models.options.model")) setfenv(fn, newEnv("Orca.store.models.options.model")) return fn() end)
 
+newModule("scripts.model", "ModuleScript", "Orca.store.models.scripts.model", "Orca.store.models", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+", '@'.."Orca.store.models.scripts.model")) setfenv(fn, newEnv("Orca.store.models.scripts.model")) return fn() end)
+
 newModule("persistent-state", "ModuleScript", "Orca.store.persistent-state", "Orca.store", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.include.RuntimeLib)\
 local HttpService = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).HttpService\
 local getStore = TS.import(script, script.Parent.Parent, \"jobs\", \"helpers\", \"job-store\").getStore\
-local setInterval = TS.import(script, script.Parent.Parent, \"utils\", \"timeout\").setInterval\
 if makefolder and not isfolder(\"_orca\") then\
 \9makefolder(\"_orca\")\
 end\
@@ -4472,15 +4605,14 @@ local autosave\
 local function persistentState(name, selector, defaultValue)\
 \9local _exitType, _returns = TS.try(function()\
 \9\9local serializedState = read(\"_orca/\" .. (name .. \".json\"))\
+\9\9autosave(name, selector):catch(function()\
+\9\9\9warn(\"Autosave failed\")\
+\9\9end)\
 \9\9if serializedState == nil then\
 \9\9\9write(\"_orca/\" .. (name .. \".json\"), HttpService:JSONEncode(defaultValue))\
 \9\9\9return TS.TRY_RETURN, { defaultValue }\
 \9\9end\
-\9\9local value = HttpService:JSONDecode(serializedState)\
-\9\9autosave(name, selector):catch(function()\
-\9\9\9warn(\"Autosave failed\")\
-\9\9end)\
-\9\9return TS.TRY_RETURN, { value }\
+\9\9return TS.TRY_RETURN, { HttpService:JSONDecode(serializedState) }\
 \9end, function(err)\
 \9\9warn(\"Failed to load \" .. (name .. (\".json: \" .. tostring(err))))\
 \9\9return TS.TRY_RETURN, { defaultValue }\
@@ -4491,18 +4623,16 @@ local function persistentState(name, selector, defaultValue)\
 end\
 autosave = TS.async(function(name, selector)\
 \9local store = TS.await(getStore())\
-\9local function save()\
-\9\9local state = selector(store:getState())\
-\9\9write(\"_orca/\" .. (name .. \".json\"), HttpService:JSONEncode(state))\
+\9local function save(slice)\
+\9\9write(\"_orca/\" .. (name .. \".json\"), HttpService:JSONEncode(slice))\
 \9end\
-\9setInterval(save, 60000)\
-\9local wasOpen = store:getState().dashboard.isOpen\
+\9local previous = selector(store:getState())\
 \9store.changed:connect(function(newState)\
-\9\9local isOpen = newState.dashboard.isOpen\
-\9\9if wasOpen and not isOpen then\
-\9\9\9save()\
+\9\9local current = selector(newState)\
+\9\9if current ~= previous then\
+\9\9\9previous = current\
+\9\9\9save(current)\
 \9\9end\
-\9\9wasOpen = isOpen\
 \9end)\
 end)\
 return {\
@@ -4619,13 +4749,19 @@ local initialState = {\
 \9freecam = {\
 \9\9active = false,\
 \9},\
-\9esp = {\
+\9espEnabled = {\
 \9\9active = false,\
+\9},\
+\9esp = {\
+\9\9active = true,\
 \9},\
 \9espName = {\
 \9\9active = false,\
 \9},\
 \9espHealth = {\
+\9\9active = false,\
+\9},\
+\9espTracers = {\
 \9\9active = false,\
 \9},\
 \9espFill = {\
@@ -4638,6 +4774,10 @@ local initialState = {\
 \9},\
 \9espHue = {\
 \9\9value = 180,\
+\9\9active = false,\
+\9},\
+\9cameraFov = {\
+\9\9value = 70,\
 \9\9active = false,\
 \9},\
 \9teleport = {\
@@ -4783,16 +4923,154 @@ return {\
 }\
 ", '@'.."Orca.store.reducers.options.reducer")) setfenv(fn, newEnv("Orca.store.reducers.options.reducer")) return fn() end)
 
+newModule("scripts.reducer", "ModuleScript", "Orca.store.reducers.scripts.reducer", "Orca.store.reducers", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
+local Rodux = TS.import(script, TS.getModule(script, \"@rbxts\", \"rodux\").src)\
+local HttpService = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).HttpService\
+local _script_files = TS.import(script, script.Parent.Parent.Parent, \"utils\", \"script-files\")\
+local basenameNoExt = _script_files.basenameNoExt\
+local SCRIPTS_FOLDER = _script_files.SCRIPTS_FOLDER\
+local toFilename = _script_files.toFilename\
+local function ensureFolder()\
+\9if isfolder and not isfolder(SCRIPTS_FOLDER) then\
+\9\9makefolder(SCRIPTS_FOLDER)\
+\9end\
+end\
+local function migrateFromJson()\
+\9if not isfile or (not readfile or (not writefile or not delfile)) then\
+\9\9return nil\
+\9end\
+\9if not isfile(\"_orca/scripts.json\") then\
+\9\9return nil\
+\9end\
+\9TS.try(function()\
+\9\9local raw = readfile(\"_orca/scripts.json\")\
+\9\9local data = HttpService:JSONDecode(raw)\
+\9\9for _, s in ipairs(data.scripts) do\
+\9\9\9local filename = toFilename(s.name)\
+\9\9\9local _exp = SCRIPTS_FOLDER .. (\"/\" .. (filename .. \".lua\"))\
+\9\9\9local _condition = s.code\
+\9\9\9if _condition == nil then\
+\9\9\9\9_condition = \"\"\
+\9\9\9end\
+\9\9\9writefile(_exp, _condition)\
+\9\9end\
+\9\9delfile(\"_orca/scripts.json\")\
+\9end, function(e)\
+\9\9warn(\"[Orca] scripts.json migration failed: \" .. tostring(e))\
+\9end)\
+end\
+local function loadScriptsFromFolder()\
+\9ensureFolder()\
+\9migrateFromJson()\
+\9if not listfiles or not readfile then\
+\9\9return {}\
+\9end\
+\9local loaded = {}\
+\9for _, filePath in ipairs(listfiles(SCRIPTS_FOLDER)) do\
+\9\9if string.sub(filePath, -4) ~= \".lua\" then\
+\9\9\9continue\
+\9\9end\
+\9\9local filename = basenameNoExt(filePath)\
+\9\9if filename == \"\" then\
+\9\9\9continue\
+\9\9end\
+\9\9TS.try(function()\
+\9\9\9local _arg0 = {\
+\9\9\9\9id = HttpService:GenerateGUID(false),\
+\9\9\9\9name = filename,\
+\9\9\9\9filename = filename,\
+\9\9\9\9code = readfile(filePath),\
+\9\9\9}\
+\9\9\9-- ▼ Array.push ▼\
+\9\9\9loaded[#loaded + 1] = _arg0\
+\9\9\9-- ▲ Array.push ▲\
+\9\9end, function(e)\
+\9\9\9warn(\"[Orca] Could not read script '\" .. (filePath .. (\"': \" .. tostring(e))))\
+\9\9end)\
+\9end\
+\9return loaded\
+end\
+local initialState = {\
+\9scripts = loadScriptsFromFolder(),\
+}\
+local scriptsReducer = Rodux.createReducer(initialState, {\
+\9[\"scripts/add\"] = function(state, action)\
+\9\9local _object = {}\
+\9\9for _k, _v in pairs(state) do\
+\9\9\9_object[_k] = _v\
+\9\9end\
+\9\9local _left = \"scripts\"\
+\9\9local _array = {}\
+\9\9local _length = #_array\
+\9\9local _array_1 = state.scripts\
+\9\9local _Length = #_array_1\
+\9\9table.move(_array_1, 1, _Length, _length + 1, _array)\
+\9\9_length += _Length\
+\9\9_array[_length + 1] = action.script\
+\9\9_object[_left] = _array\
+\9\9return _object\
+\9end,\
+\9[\"scripts/remove\"] = function(state, action)\
+\9\9local _object = {}\
+\9\9for _k, _v in pairs(state) do\
+\9\9\9_object[_k] = _v\
+\9\9end\
+\9\9local _left = \"scripts\"\
+\9\9local _scripts = state.scripts\
+\9\9local _arg0 = function(s)\
+\9\9\9return s.id ~= action.id\
+\9\9end\
+\9\9-- ▼ ReadonlyArray.filter ▼\
+\9\9local _newValue = {}\
+\9\9local _length = 0\
+\9\9for _k, _v in ipairs(_scripts) do\
+\9\9\9if _arg0(_v, _k - 1, _scripts) == true then\
+\9\9\9\9_length += 1\
+\9\9\9\9_newValue[_length] = _v\
+\9\9\9end\
+\9\9end\
+\9\9-- ▲ ReadonlyArray.filter ▲\
+\9\9_object[_left] = _newValue\
+\9\9return _object\
+\9end,\
+\9[\"scripts/update\"] = function(state, action)\
+\9\9local _object = {}\
+\9\9for _k, _v in pairs(state) do\
+\9\9\9_object[_k] = _v\
+\9\9end\
+\9\9local _left = \"scripts\"\
+\9\9local _scripts = state.scripts\
+\9\9local _arg0 = function(s)\
+\9\9\9return s.id == action.script.id and action.script or s\
+\9\9end\
+\9\9-- ▼ ReadonlyArray.map ▼\
+\9\9local _newValue = table.create(#_scripts)\
+\9\9for _k, _v in ipairs(_scripts) do\
+\9\9\9_newValue[_k] = _arg0(_v, _k - 1, _scripts)\
+\9\9end\
+\9\9-- ▲ ReadonlyArray.map ▲\
+\9\9_object[_left] = _newValue\
+\9\9return _object\
+\9end,\
+})\
+return {\
+\9scriptsReducer = scriptsReducer,\
+}\
+", '@'.."Orca.store.reducers.scripts.reducer")) setfenv(fn, newEnv("Orca.store.reducers.scripts.reducer")) return fn() end)
+
 newModule("store", "ModuleScript", "Orca.store.store", "Orca.store", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.include.RuntimeLib)\
 local Rodux = TS.import(script, TS.getModule(script, \"@rbxts\", \"rodux\").src)\
 local dashboardReducer = TS.import(script, script.Parent, \"reducers\", \"dashboard.reducer\").dashboardReducer\
 local jobsReducer = TS.import(script, script.Parent, \"reducers\", \"jobs.reducer\").jobsReducer\
 local optionsReducer = TS.import(script, script.Parent, \"reducers\", \"options.reducer\").optionsReducer\
+local scriptsReducer = TS.import(script, script.Parent, \"reducers\", \"scripts.reducer\").scriptsReducer\
 local rootReducer = Rodux.combineReducers({\
 \9dashboard = dashboardReducer,\
 \9jobs = jobsReducer,\
 \9options = optionsReducer,\
+\9scripts = scriptsReducer,\
 })\
 local function configureStore(initialState)\
 \9return Rodux.Store.new(rootReducer, initialState)\
@@ -4987,9 +5265,11 @@ local darkTheme = {\
 \9\9\9\9backgroundTransparency = 0,\
 \9\9\9},\
 \9\9\9highlight = {\
+\9\9\9\9espEnabled = hex(\"#37CC95\"),\
 \9\9\9\9esp = hex(\"#ff6464\"),\
 \9\9\9\9espName = hex(\"#37CC95\"),\
 \9\9\9\9espHealth = hex(\"#EC423D\"),\
+\9\9\9\9espTracers = hex(\"#37a4cc\"),\
 \9\9\9\9teleport = hex(\"#37CC95\"),\
 \9\9\9\9hide = hex(\"#f09c2d\"),\
 \9\9\9\9kill = hex(\"#EC423D\"),\
@@ -5256,9 +5536,11 @@ for _k, _v in pairs(view) do\
 \9_object_14[_k] = _v\
 end\
 _object_14.highlight = {\
+\9espEnabled = accent,\
 \9esp = accent,\
 \9espName = accent,\
 \9espHealth = accent,\
+\9espTracers = accent,\
 \9teleport = accent,\
 \9hide = accent,\
 \9kill = accent,\
@@ -6037,9 +6319,11 @@ _object_15.dropshadow = hex(\"#000000\")\
 _object_15.transparency = 0.7\
 _object_15.dropshadowTransparency = 0.65\
 _object_15.highlight = {\
+\9espEnabled = accent,\
 \9esp = accent,\
 \9espName = accent,\
 \9espHealth = accent,\
+\9espTracers = accent,\
 \9teleport = accent,\
 \9hide = accent,\
 \9kill = accent,\
@@ -6336,9 +6620,11 @@ for _k, _v in pairs(view) do\
 \9_object_15[_k] = _v\
 end\
 _object_15.highlight = {\
+\9espEnabled = blueAccent,\
 \9esp = redAccent,\
 \9espName = blueAccent,\
 \9espHealth = redAccent,\
+\9espTracers = mixedAccent,\
 \9teleport = redAccent,\
 \9hide = blueAccent,\
 \9kill = redAccent,\
@@ -6608,6 +6894,28 @@ return {\
 \9lerp = lerp,\
 }\
 ", '@'.."Orca.utils.number-util")) setfenv(fn, newEnv("Orca.utils.number-util")) return fn() end)
+
+newModule("script-files", "ModuleScript", "Orca.utils.script-files", "Orca.utils", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local SCRIPTS_FOLDER = \"_orca/scripts\"\
+local function toFilename(name)\
+\9local _condition = string.sub(table.concat(string.split(table.concat(string.split(name, \"/\"), \"_\"), \"\\\\\"), \"_\"), 1, 64)\
+\9if not (_condition ~= \"\" and _condition) then\
+\9\9_condition = \"script\"\
+\9end\
+\9return _condition\
+end\
+local function basenameNoExt(filePath)\
+\9local fwdParts = string.split(filePath, \"/\")\
+\9local bwdParts = string.split(fwdParts[#fwdParts - 1 + 1], \"\\\\\")\
+\9local filename = bwdParts[#bwdParts - 1 + 1]\
+\9return string.sub(filename, 1, -5)\
+end\
+return {\
+\9toFilename = toFilename,\
+\9basenameNoExt = basenameNoExt,\
+\9SCRIPTS_FOLDER = SCRIPTS_FOLDER,\
+}\
+", '@'.."Orca.utils.script-files")) setfenv(fn, newEnv("Orca.utils.script-files")) return fn() end)
 
 newModule("timeout", "ModuleScript", "Orca.utils.timeout", "Orca.utils", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.include.RuntimeLib)\
@@ -7305,7 +7613,7 @@ local pure = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\"
 local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
 local useScale = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-scale\").useScale\
 local scale = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\").scale\
-local Esp = TS.import(script, script.Parent, \"Esp\").default\
+local Visuals = TS.import(script, script.Parent, \"Visuals\").default\
 local Players = TS.import(script, script.Parent, \"Players\").default\
 local function Apps()\
 \9local scaleFactor = useScale()\
@@ -7317,7 +7625,7 @@ local function Apps()\
 \9\9\9Scale = scaleFactor,\
 \9\9}),\
 \9\9Roact.createElement(Players),\
-\9\9Roact.createElement(Esp),\
+\9\9Roact.createElement(Visuals),\
 \9})\
 end\
 local default = pure(Apps)\
@@ -7325,411 +7633,6 @@ return {\
 \9default = default,\
 }\
 ", '@'.."Orca.views.Pages.Apps.Apps")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Apps")) return fn() end)
-
-newModule("Esp", "ModuleScript", "Orca.views.Pages.Apps.Esp", "Orca.views.Pages.Apps", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
-local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
-local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
-local _roact_hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out)\
-local hooked = _roact_hooked.hooked\
-local useBinding = _roact_hooked.useBinding\
-local useState = _roact_hooked.useState\
-local ActionButton = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"ActionButton\").default\
-local Border = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Border\").default\
-local BrightSlider = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"BrightSlider\").default\
-local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
-local Card = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Card\").default\
-local Fill = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Fill\").default\
-local _rodux_hooks = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\")\
-local useAppDispatch = _rodux_hooks.useAppDispatch\
-local useAppSelector = _rodux_hooks.useAppSelector\
-local useTheme = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-theme\").useTheme\
-local setJobValue = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"jobs.action\").setJobValue\
-local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"models\", \"dashboard.model\").DashboardPage\
-local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
-local px = _udim2.px\
-local scale = _udim2.scale\
-local function hueToColor(hue)\
-\9return Color3.fromHSV(hue / 360, 1, 1)\
-end\
-local function Esp()\
-\9local dispatch = useAppDispatch()\
-\9local theme = useTheme(\"apps\").players\
-\9local profileHighlight = useTheme(\"home\").profile.highlight\
-\9local fillJob = useAppSelector(function(state)\
-\9\9return state.jobs.espFill\
-\9end)\
-\9local outlineJob = useAppSelector(function(state)\
-\9\9return state.jobs.espOutline\
-\9end)\
-\9local hueJob = useAppSelector(function(state)\
-\9\9return state.jobs.espHue\
-\9end)\
-\9local _binding = useBinding(fillJob.value)\
-\9local fillValue = _binding[1]\
-\9local setFillValue = _binding[2]\
-\9local _binding_1 = useBinding(outlineJob.value)\
-\9local outlineValue = _binding_1[1]\
-\9local setOutlineValue = _binding_1[2]\
-\9local _binding_2 = useBinding(hueJob.value)\
-\9local hueValue = _binding_2[1]\
-\9local setHueValue = _binding_2[2]\
-\9local _binding_3 = useState(hueToColor(hueJob.value))\
-\9local hueColor = _binding_3[1]\
-\9local setHueColor = _binding_3[2]\
-\9local fillAccent = profileHighlight.flight\
-\9local outlineAccent = profileHighlight.walkSpeed\
-\9local hueAccent = profileHighlight.jumpHeight\
-\9local _attributes = {\
-\9\9index = 2,\
-\9\9page = DashboardPage.Apps,\
-\9\9theme = theme,\
-\9\9size = px(326, 437),\
-\9\9position = UDim2.new(0, 374, 1, 0),\
-\9}\
-\9local _children = {\
-\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9Text = \"Visuals\",\
-\9\9\9Font = \"GothamBlack\",\
-\9\9\9TextSize = 20,\
-\9\9\9TextColor3 = theme.foreground,\
-\9\9\9TextXAlignment = \"Left\",\
-\9\9\9TextYAlignment = \"Top\",\
-\9\9\9Position = px(24, 24),\
-\9\9\9BackgroundTransparency = 1,\
-\9\9}),\
-\9}\
-\9local _length = #_children\
-\9local _attributes_1 = {\
-\9\9size = px(278, 100),\
-\9\9position = px(24, 60),\
-\9}\
-\9local _children_1 = {\
-\9\9Roact.createElement(Fill, {\
-\9\9\9color = theme.button.background,\
-\9\9\9radius = 16,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}),\
-\9}\
-\9local _length_1 = #_children_1\
-\9local _child = theme.button.outlined and Roact.createElement(Border, {\
-\9\9color = theme.button.foreground,\
-\9\9radius = 16,\
-\9\9transparency = 0.8,\
-\9})\
-\9if _child then\
-\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
-\9\9\9_children_1[_length_1 + 1] = _child\
-\9\9else\
-\9\9\9for _k, _v in ipairs(_child) do\
-\9\9\9\9_children_1[_length_1 + _k] = _v\
-\9\9\9end\
-\9\9end\
-\9end\
-\9_length_1 = #_children_1\
-\9_children_1[_length_1 + 1] = Roact.createElement(Canvas, {\
-\9\9size = px(80, 68),\
-\9\9position = px(99, 16),\
-\9}, {\
-\9\9Roact.createElement(Fill, {\
-\9\9\9color = hueColor,\
-\9\9\9radius = 14,\
-\9\9\9transparency = fillValue:map(function(v)\
-\9\9\9\9return 1 - v / 100\
-\9\9\9end),\
-\9\9}),\
-\9\9Roact.createElement(Border, {\
-\9\9\9color = hueColor,\
-\9\9\9radius = 14,\
-\9\9\9transparency = outlineValue:map(function(v)\
-\9\9\9\9return 1 - v / 100\
-\9\9\9end),\
-\9\9}),\
-\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9Text = \"TARGET\",\
-\9\9\9Font = \"GothamBlack\",\
-\9\9\9TextSize = 13,\
-\9\9\9TextColor3 = theme.foreground,\
-\9\9\9Size = scale(1, 1),\
-\9\9\9BackgroundTransparency = 1,\
-\9\9}),\
-\9})\
-\9_children[_length + 1] = Roact.createElement(Canvas, _attributes_1, _children_1)\
-\9local _attributes_2 = {\
-\9\9size = px(278, 49),\
-\9\9position = px(24, 176),\
-\9}\
-\9local _children_2 = {\
-\9\9Roact.createElement(BrightSlider, {\
-\9\9\9min = 0,\
-\9\9\9max = 100,\
-\9\9\9initialValue = fillJob.value,\
-\9\9\9onValueChanged = setFillValue,\
-\9\9\9onRelease = function(v)\
-\9\9\9\9return dispatch(setJobValue(\"espFill\", math.round(v)))\
-\9\9\9end,\
-\9\9\9size = px(193, 49),\
-\9\9\9position = px(0, 0),\
-\9\9\9radius = 8,\
-\9\9\9color = theme.button.background,\
-\9\9\9accentColor = fillAccent,\
-\9\9\9borderEnabled = theme.button.outlined,\
-\9\9\9borderColor = theme.button.foreground,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}, {\
-\9\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9\9Font = \"GothamBold\",\
-\9\9\9\9Text = fillValue:map(function(v)\
-\9\9\9\9\9return tostring(math.round(v)) .. \"%\"\
-\9\9\9\9end),\
-\9\9\9\9TextSize = 15,\
-\9\9\9\9TextColor3 = theme.button.foreground,\
-\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
-\9\9\9\9TextXAlignment = \"Center\",\
-\9\9\9\9TextYAlignment = \"Center\",\
-\9\9\9\9Size = scale(1, 1),\
-\9\9\9\9BackgroundTransparency = 1,\
-\9\9\9}),\
-\9\9}),\
-\9}\
-\9local _length_2 = #_children_2\
-\9local _attributes_3 = {\
-\9\9size = px(73, 49),\
-\9\9position = px(205, 0),\
-\9}\
-\9local _children_3 = {\
-\9\9Roact.createElement(Fill, {\
-\9\9\9color = theme.button.background,\
-\9\9\9radius = 8,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}),\
-\9}\
-\9local _length_3 = #_children_3\
-\9local _child_1 = theme.button.outlined and Roact.createElement(Border, {\
-\9\9color = theme.button.foreground,\
-\9\9radius = 8,\
-\9\9transparency = 0.8,\
-\9})\
-\9if _child_1 then\
-\9\9if _child_1.elements ~= nil or _child_1.props ~= nil and _child_1.component ~= nil then\
-\9\9\9_children_3[_length_3 + 1] = _child_1\
-\9\9else\
-\9\9\9for _k, _v in ipairs(_child_1) do\
-\9\9\9\9_children_3[_length_3 + _k] = _v\
-\9\9\9end\
-\9\9end\
-\9end\
-\9_length_3 = #_children_3\
-\9_children_3[_length_3 + 1] = Roact.createElement(\"TextLabel\", {\
-\9\9Text = \"Fill\",\
-\9\9Font = \"GothamBold\",\
-\9\9TextSize = 15,\
-\9\9TextColor3 = theme.button.foreground,\
-\9\9TextTransparency = theme.button.foregroundTransparency,\
-\9\9TextXAlignment = \"Center\",\
-\9\9TextYAlignment = \"Center\",\
-\9\9Size = scale(1, 1),\
-\9\9BackgroundTransparency = 1,\
-\9})\
-\9_children_2[_length_2 + 1] = Roact.createElement(Canvas, _attributes_3, _children_3)\
-\9_children[_length + 2] = Roact.createElement(Canvas, _attributes_2, _children_2)\
-\9local _attributes_4 = {\
-\9\9size = px(278, 49),\
-\9\9position = px(24, 237),\
-\9}\
-\9local _children_4 = {\
-\9\9Roact.createElement(BrightSlider, {\
-\9\9\9min = 0,\
-\9\9\9max = 100,\
-\9\9\9initialValue = outlineJob.value,\
-\9\9\9onValueChanged = setOutlineValue,\
-\9\9\9onRelease = function(v)\
-\9\9\9\9return dispatch(setJobValue(\"espOutline\", math.round(v)))\
-\9\9\9end,\
-\9\9\9size = px(193, 49),\
-\9\9\9position = px(0, 0),\
-\9\9\9radius = 8,\
-\9\9\9color = theme.button.background,\
-\9\9\9accentColor = outlineAccent,\
-\9\9\9borderEnabled = theme.button.outlined,\
-\9\9\9borderColor = theme.button.foreground,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}, {\
-\9\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9\9Font = \"GothamBold\",\
-\9\9\9\9Text = outlineValue:map(function(v)\
-\9\9\9\9\9return tostring(math.round(v)) .. \"%\"\
-\9\9\9\9end),\
-\9\9\9\9TextSize = 15,\
-\9\9\9\9TextColor3 = theme.button.foreground,\
-\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
-\9\9\9\9TextXAlignment = \"Center\",\
-\9\9\9\9TextYAlignment = \"Center\",\
-\9\9\9\9Size = scale(1, 1),\
-\9\9\9\9BackgroundTransparency = 1,\
-\9\9\9}),\
-\9\9}),\
-\9}\
-\9local _length_4 = #_children_4\
-\9local _attributes_5 = {\
-\9\9size = px(73, 49),\
-\9\9position = px(205, 0),\
-\9}\
-\9local _children_5 = {\
-\9\9Roact.createElement(Fill, {\
-\9\9\9color = theme.button.background,\
-\9\9\9radius = 8,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}),\
-\9}\
-\9local _length_5 = #_children_5\
-\9local _child_2 = theme.button.outlined and Roact.createElement(Border, {\
-\9\9color = theme.button.foreground,\
-\9\9radius = 8,\
-\9\9transparency = 0.8,\
-\9})\
-\9if _child_2 then\
-\9\9if _child_2.elements ~= nil or _child_2.props ~= nil and _child_2.component ~= nil then\
-\9\9\9_children_5[_length_5 + 1] = _child_2\
-\9\9else\
-\9\9\9for _k, _v in ipairs(_child_2) do\
-\9\9\9\9_children_5[_length_5 + _k] = _v\
-\9\9\9end\
-\9\9end\
-\9end\
-\9_length_5 = #_children_5\
-\9_children_5[_length_5 + 1] = Roact.createElement(\"TextLabel\", {\
-\9\9Text = \"Outline\",\
-\9\9Font = \"GothamBold\",\
-\9\9TextSize = 15,\
-\9\9TextColor3 = theme.button.foreground,\
-\9\9TextTransparency = theme.button.foregroundTransparency,\
-\9\9TextXAlignment = \"Center\",\
-\9\9TextYAlignment = \"Center\",\
-\9\9Size = scale(1, 1),\
-\9\9BackgroundTransparency = 1,\
-\9})\
-\9_children_4[_length_4 + 1] = Roact.createElement(Canvas, _attributes_5, _children_5)\
-\9_children[_length + 3] = Roact.createElement(Canvas, _attributes_4, _children_4)\
-\9local _attributes_6 = {\
-\9\9size = px(278, 49),\
-\9\9position = px(24, 298),\
-\9}\
-\9local _children_6 = {\
-\9\9Roact.createElement(BrightSlider, {\
-\9\9\9min = 0,\
-\9\9\9max = 360,\
-\9\9\9initialValue = hueJob.value,\
-\9\9\9onValueChanged = function(v)\
-\9\9\9\9setHueValue(v)\
-\9\9\9\9setHueColor(hueToColor(v))\
-\9\9\9end,\
-\9\9\9onRelease = function(v)\
-\9\9\9\9return dispatch(setJobValue(\"espHue\", math.round(v)))\
-\9\9\9end,\
-\9\9\9size = px(193, 49),\
-\9\9\9position = px(0, 0),\
-\9\9\9radius = 8,\
-\9\9\9color = theme.button.background,\
-\9\9\9accentColor = hueAccent,\
-\9\9\9borderEnabled = theme.button.outlined,\
-\9\9\9borderColor = theme.button.foreground,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}, {\
-\9\9\9Roact.createElement(\"TextLabel\", {\
-\9\9\9\9Font = \"GothamBold\",\
-\9\9\9\9Text = hueValue:map(function(v)\
-\9\9\9\9\9return tostring(math.round(v)) .. \"°\"\
-\9\9\9\9end),\
-\9\9\9\9TextSize = 15,\
-\9\9\9\9TextColor3 = theme.button.foreground,\
-\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
-\9\9\9\9TextXAlignment = \"Center\",\
-\9\9\9\9TextYAlignment = \"Center\",\
-\9\9\9\9Size = scale(1, 1),\
-\9\9\9\9BackgroundTransparency = 1,\
-\9\9\9}),\
-\9\9}),\
-\9}\
-\9local _length_6 = #_children_6\
-\9local _attributes_7 = {\
-\9\9size = px(73, 49),\
-\9\9position = px(205, 0),\
-\9}\
-\9local _children_7 = {\
-\9\9Roact.createElement(Fill, {\
-\9\9\9color = theme.button.background,\
-\9\9\9radius = 8,\
-\9\9\9transparency = theme.button.backgroundTransparency,\
-\9\9}),\
-\9}\
-\9local _length_7 = #_children_7\
-\9local _child_3 = theme.button.outlined and Roact.createElement(Border, {\
-\9\9color = theme.button.foreground,\
-\9\9radius = 8,\
-\9\9transparency = 0.8,\
-\9})\
-\9if _child_3 then\
-\9\9if _child_3.elements ~= nil or _child_3.props ~= nil and _child_3.component ~= nil then\
-\9\9\9_children_7[_length_7 + 1] = _child_3\
-\9\9else\
-\9\9\9for _k, _v in ipairs(_child_3) do\
-\9\9\9\9_children_7[_length_7 + _k] = _v\
-\9\9\9end\
-\9\9end\
-\9end\
-\9_length_7 = #_children_7\
-\9_children_7[_length_7 + 1] = Roact.createElement(\"TextLabel\", {\
-\9\9Text = \"Hue\",\
-\9\9Font = \"GothamBold\",\
-\9\9TextSize = 15,\
-\9\9TextColor3 = theme.button.foreground,\
-\9\9TextTransparency = theme.button.foregroundTransparency,\
-\9\9TextXAlignment = \"Center\",\
-\9\9TextYAlignment = \"Center\",\
-\9\9Size = scale(1, 1),\
-\9\9BackgroundTransparency = 1,\
-\9})\
-\9_children_6[_length_6 + 1] = Roact.createElement(Canvas, _attributes_7, _children_7)\
-\9_children[_length + 4] = Roact.createElement(Canvas, _attributes_6, _children_6)\
-\9_children[_length + 5] = Roact.createElement(Canvas, {\
-\9\9size = px(278, 49),\
-\9\9position = px(24, 363),\
-\9}, {\
-\9\9Roact.createElement(ActionButton, {\
-\9\9\9action = \"esp\",\
-\9\9\9hint = \"<font face='GothamBlack'>Highlight</font> other players with ESP outlines\",\
-\9\9\9theme = theme,\
-\9\9\9label = \"Highlight\",\
-\9\9\9position = px(0, 0),\
-\9\9\9size = px(84, 49),\
-\9\9\9canDeactivate = true,\
-\9\9}),\
-\9\9Roact.createElement(ActionButton, {\
-\9\9\9action = \"espName\",\
-\9\9\9hint = \"Show <font face='GothamBlack'>name tags</font> above other players\",\
-\9\9\9theme = theme,\
-\9\9\9label = \"Names\",\
-\9\9\9position = px(97, 0),\
-\9\9\9size = px(84, 49),\
-\9\9\9canDeactivate = true,\
-\9\9}),\
-\9\9Roact.createElement(ActionButton, {\
-\9\9\9action = \"espHealth\",\
-\9\9\9hint = \"Show <font face='GothamBlack'>health bars</font> above other players\",\
-\9\9\9theme = theme,\
-\9\9\9label = \"Health\",\
-\9\9\9position = px(194, 0),\
-\9\9\9size = px(84, 49),\
-\9\9\9canDeactivate = true,\
-\9\9}),\
-\9})\
-\9return Roact.createElement(Card, _attributes, _children)\
-end\
-local default = hooked(Esp)\
-return {\
-\9default = default,\
-}\
-", '@'.."Orca.views.Pages.Apps.Esp")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Esp")) return fn() end)
 
 newModule("Players", "ModuleScript", "Orca.views.Pages.Apps.Players", "Orca.views.Pages.Apps", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
@@ -8261,6 +8164,912 @@ return {\
 \9default = default,\
 }\
 ", '@'.."Orca.views.Pages.Apps.Players.Username")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Players.Username")) return fn() end)
+
+newModule("Visuals", "ModuleScript", "Orca.views.Pages.Apps.Visuals", "Orca.views.Pages.Apps", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local exports = {}\
+exports.default = TS.import(script, script, \"Visuals\").default\
+return exports\
+", '@'.."Orca.views.Pages.Apps.Visuals")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Visuals")) return fn() end)
+
+newModule("CameraFov", "ModuleScript", "Orca.views.Pages.Apps.Visuals.CameraFov", "Orca.views.Pages.Apps.Visuals", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
+local _roact_hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out)\
+local hooked = _roact_hooked.hooked\
+local useBinding = _roact_hooked.useBinding\
+local useState = _roact_hooked.useState\
+local Border = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Border\").default\
+local BrightSlider = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"BrightSlider\").default\
+local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
+local Fill = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Fill\").default\
+local _rodux_hooks = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\")\
+local useAppDispatch = _rodux_hooks.useAppDispatch\
+local useAppSelector = _rodux_hooks.useAppSelector\
+local useSpring = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"use-spring\").useSpring\
+local _dashboard_action = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"dashboard.action\")\
+local clearHint = _dashboard_action.clearHint\
+local setHint = _dashboard_action.setHint\
+local setJobValue = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"jobs.action\").setJobValue\
+local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
+local px = _udim2.px\
+local scale = _udim2.scale\
+local _visuals_constants = TS.import(script, script.Parent, \"visuals.constants\")\
+local CARD_PAD = _visuals_constants.CARD_PAD\
+local DEFAULT_CAMERA_FOV = _visuals_constants.DEFAULT_CAMERA_FOV\
+local SECTION_HEADING_H = _visuals_constants.SECTION_HEADING_H\
+local SECTION_HEADING_TEXT = _visuals_constants.SECTION_HEADING_TEXT\
+local SLIDER_H = _visuals_constants.SLIDER_H\
+local function CameraFov(_param)\
+\9local theme = _param.theme\
+\9local yCameraTitle = _param.yCameraTitle\
+\9local yCameraSubtitle = _param.yCameraSubtitle\
+\9local yFovRow = _param.yFovRow\
+\9local dispatch = useAppDispatch()\
+\9local cameraFovJob = useAppSelector(function(state)\
+\9\9return state.jobs.cameraFov\
+\9end)\
+\9local _binding = useBinding(cameraFovJob.value)\
+\9local fovValue = _binding[1]\
+\9local setFovValue = _binding[2]\
+\9local _binding_1 = useState(0)\
+\9local fovSliderKey = _binding_1[1]\
+\9local setFovSliderKey = _binding_1[2]\
+\9local _binding_2 = useState(false)\
+\9local resetHover = _binding_2[1]\
+\9local setResetHover = _binding_2[2]\
+\9local fovAccent = theme.highlight.teleport\
+\9local _result\
+\9if resetHover then\
+\9\9local _condition = theme.button.backgroundHovered\
+\9\9if _condition == nil then\
+\9\9\9_condition = theme.button.background:Lerp(fovAccent, 0.1)\
+\9\9end\
+\9\9_result = _condition\
+\9else\
+\9\9_result = theme.button.background\
+\9end\
+\9local resetFill = useSpring(_result, {})\
+\9local resetTextTransparency = useSpring(resetHover and theme.button.foregroundTransparency - 0.25 or theme.button.foregroundTransparency, {})\
+\9local _children = {\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"Camera\",\
+\9\9\9Font = \"GothamBlack\",\
+\9\9\9TextSize = SECTION_HEADING_TEXT,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9TextTransparency = 0.25,\
+\9\9\9TextXAlignment = \"Left\",\
+\9\9\9TextYAlignment = \"Top\",\
+\9\9\9Position = px(CARD_PAD, yCameraTitle),\
+\9\9\9Size = UDim2.new(1, -48, 0, SECTION_HEADING_H),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>Camera</font> — settings for your view (not related to ESP overlays)\"))\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return dispatch(clearHint())\
+\9\9\9end,\
+\9\9}),\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"Field of view (FOV)\",\
+\9\9\9Font = \"GothamBold\",\
+\9\9\9TextSize = 13,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9TextTransparency = 0.45,\
+\9\9\9TextXAlignment = \"Left\",\
+\9\9\9TextYAlignment = \"Top\",\
+\9\9\9Position = px(CARD_PAD, yCameraSubtitle),\
+\9\9\9Size = UDim2.new(1, -48, 0, 16),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>Field of view (FOV)</font> — horizontal camera angle in degrees. Wider = see more at once.\"))\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return dispatch(clearHint())\
+\9\9\9end,\
+\9\9}),\
+\9}\
+\9local _length = #_children\
+\9local _attributes = {\
+\9\9Size = px(278, SLIDER_H),\
+\9\9Position = px(CARD_PAD, yFovRow),\
+\9\9BackgroundTransparency = 1,\
+\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9return dispatch(setHint(\"Drag to set <font face='GothamBlack'>camera FOV</font> (30°–120°). Release to apply.\"))\
+\9\9end,\
+\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9return dispatch(clearHint())\
+\9\9end,\
+\9}\
+\9local _children_1 = {\
+\9\9[fovSliderKey] = Roact.createElement(BrightSlider, {\
+\9\9\9min = 30,\
+\9\9\9max = 120,\
+\9\9\9initialValue = cameraFovJob.value,\
+\9\9\9onValueChanged = setFovValue,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"cameraFov\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, SLIDER_H),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = fovAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = fovValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v))\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_1 = #_children_1\
+\9local _attributes_1 = {\
+\9\9size = px(73, SLIDER_H),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_2 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = resetFill,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_2 = #_children_2\
+\9local _child = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child then\
+\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
+\9\9\9_children_2[_length_2 + 1] = _child\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child) do\
+\9\9\9\9_children_2[_length_2 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_2 = #_children_2\
+\9_children_2[_length_2 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Reset\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 14,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = resetTextTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_2[_length_2 + 2] = Roact.createElement(\"TextButton\", {\
+\9\9Text = \"\",\
+\9\9AutoButtonColor = false,\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9setResetHover(true)\
+\9\9\9dispatch(setHint(\"Reset <font face='GothamBlack'>field of view</font> to default (70°)\"))\
+\9\9end,\
+\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9setResetHover(false)\
+\9\9\9dispatch(clearHint())\
+\9\9end,\
+\9\9[Roact.Event.Activated] = function()\
+\9\9\9dispatch(setJobValue(\"cameraFov\", DEFAULT_CAMERA_FOV))\
+\9\9\9setFovValue(DEFAULT_CAMERA_FOV)\
+\9\9\9setFovSliderKey(function(k)\
+\9\9\9\9return k + 1\
+\9\9\9end)\
+\9\9end,\
+\9})\
+\9_children_1[_length_1 + 1] = Roact.createElement(Canvas, _attributes_1, _children_2)\
+\9_children[_length + 1] = Roact.createElement(\"Frame\", _attributes, _children_1)\
+\9return Roact.createFragment(_children)\
+end\
+local default = hooked(CameraFov)\
+return {\
+\9default = default,\
+}\
+", '@'.."Orca.views.Pages.Apps.Visuals.CameraFov")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Visuals.CameraFov")) return fn() end)
+
+newModule("EspPanel", "ModuleScript", "Orca.views.Pages.Apps.Visuals.EspPanel", "Orca.views.Pages.Apps.Visuals", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
+local _roact_hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out)\
+local hooked = _roact_hooked.hooked\
+local useBinding = _roact_hooked.useBinding\
+local useState = _roact_hooked.useState\
+local ActionButton = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"ActionButton\").default\
+local Border = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Border\").default\
+local BrightSlider = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"BrightSlider\").default\
+local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
+local Fill = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Fill\").default\
+local _rodux_hooks = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\")\
+local useAppDispatch = _rodux_hooks.useAppDispatch\
+local useAppSelector = _rodux_hooks.useAppSelector\
+local useTheme = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"hooks\", \"use-theme\").useTheme\
+local _dashboard_action = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"dashboard.action\")\
+local clearHint = _dashboard_action.clearHint\
+local setHint = _dashboard_action.setHint\
+local setJobValue = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"jobs.action\").setJobValue\
+local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
+local px = _udim2.px\
+local scale = _udim2.scale\
+local _esp_layout = TS.import(script, script.Parent, \"esp-layout\")\
+local ENABLE_BTN_H = _esp_layout.ENABLE_BTN_H\
+local ENABLE_BTN_W = _esp_layout.ENABLE_BTN_W\
+local ESP_HEADER_ROW_H = _esp_layout.ESP_HEADER_ROW_H\
+local PREVIEW_H = _esp_layout.PREVIEW_H\
+local espBlockHeight = _esp_layout.espBlockHeight\
+local getEspInternalLayout = _esp_layout.getEspInternalLayout\
+local hueToColor = _esp_layout.hueToColor\
+local _visuals_constants = TS.import(script, script.Parent, \"visuals.constants\")\
+local SECTION_HEADING_TEXT = _visuals_constants.SECTION_HEADING_TEXT\
+local SLIDER_H = _visuals_constants.SLIDER_H\
+local function EspPanel(_param)\
+\9local theme = _param.theme\
+\9local dispatch = useAppDispatch()\
+\9local profileHighlight = useTheme(\"home\").profile.highlight\
+\9local fillJob = useAppSelector(function(state)\
+\9\9return state.jobs.espFill\
+\9end)\
+\9local outlineJob = useAppSelector(function(state)\
+\9\9return state.jobs.espOutline\
+\9end)\
+\9local hueJob = useAppSelector(function(state)\
+\9\9return state.jobs.espHue\
+\9end)\
+\9local espActive = useAppSelector(function(state)\
+\9\9return state.jobs.esp.active\
+\9end)\
+\9local espNameActive = useAppSelector(function(state)\
+\9\9return state.jobs.espName.active\
+\9end)\
+\9local espHealthActive = useAppSelector(function(state)\
+\9\9return state.jobs.espHealth.active\
+\9end)\
+\9local espTracersActive = useAppSelector(function(state)\
+\9\9return state.jobs.espTracers.active\
+\9end)\
+\9local _exp = { espActive, espNameActive, espHealthActive, espTracersActive }\
+\9local _arg0 = function(v)\
+\9\9return v\
+\9end\
+\9-- ▼ ReadonlyArray.filter ▼\
+\9local _newValue = {}\
+\9local _length = 0\
+\9for _k, _v in ipairs(_exp) do\
+\9\9if _arg0(_v, _k - 1, _exp) == true then\
+\9\9\9_length += 1\
+\9\9\9_newValue[_length] = _v\
+\9\9end\
+\9end\
+\9-- ▲ ReadonlyArray.filter ▲\
+\9local subActiveCount = #_newValue\
+\9local _binding = useBinding(fillJob.value)\
+\9local fillValue = _binding[1]\
+\9local setFillValue = _binding[2]\
+\9local _binding_1 = useBinding(outlineJob.value)\
+\9local outlineValue = _binding_1[1]\
+\9local setOutlineValue = _binding_1[2]\
+\9local _binding_2 = useBinding(hueJob.value)\
+\9local hueValue = _binding_2[1]\
+\9local setHueValue = _binding_2[2]\
+\9local _binding_3 = useState(hueToColor(hueJob.value))\
+\9local hueColor = _binding_3[1]\
+\9local setHueColor = _binding_3[2]\
+\9local fillAccent = profileHighlight.flight\
+\9local outlineAccent = profileHighlight.walkSpeed\
+\9local hueAccent = profileHighlight.jumpHeight\
+\9local _binding_4 = getEspInternalLayout()\
+\9local yEspHeader = _binding_4.yEspHeader\
+\9local yPreview = _binding_4.yPreview\
+\9local yFill = _binding_4.yFill\
+\9local yOutline = _binding_4.yOutline\
+\9local yHue = _binding_4.yHue\
+\9local yToggles = _binding_4.yToggles\
+\9local espH = espBlockHeight()\
+\9local _attributes = {\
+\9\9size = px(278, espH),\
+\9\9position = px(0, 0),\
+\9}\
+\9local _children = {\
+\9\9Roact.createElement(Canvas, {\
+\9\9\9size = px(278, ESP_HEADER_ROW_H),\
+\9\9\9position = px(0, yEspHeader),\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Text = \"ESP\",\
+\9\9\9\9Font = \"GothamBlack\",\
+\9\9\9\9TextSize = SECTION_HEADING_TEXT,\
+\9\9\9\9TextColor3 = theme.foreground,\
+\9\9\9\9TextTransparency = 0.25,\
+\9\9\9\9TextXAlignment = \"Left\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Position = px(0, 0),\
+\9\9\9\9Size = UDim2.new(1, -(ENABLE_BTN_W + 8), 1, 0),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>ESP</font> — overlays on other players (highlights, names, health, tracers). Use <b>Enable</b> to turn the whole feature on or off.\"))\
+\9\9\9\9end,\
+\9\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9\9return dispatch(clearHint())\
+\9\9\9\9end,\
+\9\9\9}),\
+\9\9\9Roact.createElement(ActionButton, {\
+\9\9\9\9action = \"espEnabled\",\
+\9\9\9\9hint = \"<font face='GothamBlack'>Enable ESP</font> — master switch for highlights, names, health bars, and tracers (not camera FOV)\",\
+\9\9\9\9theme = theme,\
+\9\9\9\9label = \"Enable\",\
+\9\9\9\9position = px(278 - ENABLE_BTN_W, 0),\
+\9\9\9\9size = px(ENABLE_BTN_W, ENABLE_BTN_H),\
+\9\9\9\9canDeactivate = true,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_1 = #_children\
+\9local _attributes_1 = {\
+\9\9Size = px(278, PREVIEW_H),\
+\9\9Position = px(0, yPreview),\
+\9\9BackgroundTransparency = 1,\
+\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9return dispatch(setHint(\"Live preview of <font face='GothamBlack'>ESP highlight</font> fill, outline, and hue\"))\
+\9\9end,\
+\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9return dispatch(clearHint())\
+\9\9end,\
+\9}\
+\9local _children_1 = {}\
+\9local _length_2 = #_children_1\
+\9local _attributes_2 = {\
+\9\9size = px(278, PREVIEW_H),\
+\9\9position = px(0, 0),\
+\9}\
+\9local _children_2 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 16,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_3 = #_children_2\
+\9local _child = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 16,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child then\
+\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
+\9\9\9_children_2[_length_3 + 1] = _child\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child) do\
+\9\9\9\9_children_2[_length_3 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_3 = #_children_2\
+\9_children_2[_length_3 + 1] = Roact.createElement(Canvas, {\
+\9\9size = px(80, 68),\
+\9\9position = px(99, math.floor((PREVIEW_H - 68) / 2)),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = hueColor,\
+\9\9\9radius = 14,\
+\9\9\9transparency = fillValue:map(function(v)\
+\9\9\9\9return 1 - v / 100\
+\9\9\9end),\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = hueColor,\
+\9\9\9radius = 14,\
+\9\9\9transparency = outlineValue:map(function(v)\
+\9\9\9\9return 1 - v / 100\
+\9\9\9end),\
+\9\9}),\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"TARGET\",\
+\9\9\9Font = \"GothamBlack\",\
+\9\9\9TextSize = 13,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9}),\
+\9})\
+\9_children_1[_length_2 + 1] = Roact.createElement(Canvas, _attributes_2, _children_2)\
+\9_children[_length_1 + 1] = Roact.createElement(\"Frame\", _attributes_1, _children_1)\
+\9local _attributes_3 = {\
+\9\9Size = px(278, SLIDER_H),\
+\9\9Position = px(0, yFill),\
+\9\9BackgroundTransparency = 1,\
+\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>Fill</font> — opacity of the highlight fill over players (0–100%)\"))\
+\9\9end,\
+\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9return dispatch(clearHint())\
+\9\9end,\
+\9}\
+\9local _children_3 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 100,\
+\9\9\9initialValue = fillJob.value,\
+\9\9\9onValueChanged = setFillValue,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espFill\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, SLIDER_H),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = fillAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = fillValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"%\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_4 = #_children_3\
+\9local _attributes_4 = {\
+\9\9size = px(73, SLIDER_H),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_4 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_5 = #_children_4\
+\9local _child_1 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_1 then\
+\9\9if _child_1.elements ~= nil or _child_1.props ~= nil and _child_1.component ~= nil then\
+\9\9\9_children_4[_length_5 + 1] = _child_1\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_1) do\
+\9\9\9\9_children_4[_length_5 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_5 = #_children_4\
+\9_children_4[_length_5 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Fill\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_3[_length_4 + 1] = Roact.createElement(Canvas, _attributes_4, _children_4)\
+\9_children[_length_1 + 2] = Roact.createElement(\"Frame\", _attributes_3, _children_3)\
+\9local _attributes_5 = {\
+\9\9Size = px(278, SLIDER_H),\
+\9\9Position = px(0, yOutline),\
+\9\9BackgroundTransparency = 1,\
+\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>Outline</font> — opacity of the highlight outline (0–100%)\"))\
+\9\9end,\
+\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9return dispatch(clearHint())\
+\9\9end,\
+\9}\
+\9local _children_5 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 100,\
+\9\9\9initialValue = outlineJob.value,\
+\9\9\9onValueChanged = setOutlineValue,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espOutline\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, SLIDER_H),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = outlineAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = outlineValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"%\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_6 = #_children_5\
+\9local _attributes_6 = {\
+\9\9size = px(73, SLIDER_H),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_6 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_7 = #_children_6\
+\9local _child_2 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_2 then\
+\9\9if _child_2.elements ~= nil or _child_2.props ~= nil and _child_2.component ~= nil then\
+\9\9\9_children_6[_length_7 + 1] = _child_2\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_2) do\
+\9\9\9\9_children_6[_length_7 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_7 = #_children_6\
+\9_children_6[_length_7 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Outline\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_5[_length_6 + 1] = Roact.createElement(Canvas, _attributes_6, _children_6)\
+\9_children[_length_1 + 3] = Roact.createElement(\"Frame\", _attributes_5, _children_5)\
+\9local _attributes_7 = {\
+\9\9Size = px(278, SLIDER_H),\
+\9\9Position = px(0, yHue),\
+\9\9BackgroundTransparency = 1,\
+\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>Hue</font> — highlight color on the color wheel (0°–360°)\"))\
+\9\9end,\
+\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9return dispatch(clearHint())\
+\9\9end,\
+\9}\
+\9local _children_7 = {\
+\9\9Roact.createElement(BrightSlider, {\
+\9\9\9min = 0,\
+\9\9\9max = 360,\
+\9\9\9initialValue = hueJob.value,\
+\9\9\9onValueChanged = function(v)\
+\9\9\9\9setHueValue(v)\
+\9\9\9\9setHueColor(hueToColor(v))\
+\9\9\9end,\
+\9\9\9onRelease = function(v)\
+\9\9\9\9return dispatch(setJobValue(\"espHue\", math.round(v)))\
+\9\9\9end,\
+\9\9\9size = px(193, SLIDER_H),\
+\9\9\9position = px(0, 0),\
+\9\9\9radius = 8,\
+\9\9\9color = theme.button.background,\
+\9\9\9accentColor = hueAccent,\
+\9\9\9borderEnabled = theme.button.outlined,\
+\9\9\9borderColor = theme.button.foreground,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}, {\
+\9\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9\9Font = \"GothamBold\",\
+\9\9\9\9Text = hueValue:map(function(v)\
+\9\9\9\9\9return tostring(math.round(v)) .. \"°\"\
+\9\9\9\9end),\
+\9\9\9\9TextSize = 15,\
+\9\9\9\9TextColor3 = theme.button.foreground,\
+\9\9\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9\9\9TextXAlignment = \"Center\",\
+\9\9\9\9TextYAlignment = \"Center\",\
+\9\9\9\9Size = scale(1, 1),\
+\9\9\9\9BackgroundTransparency = 1,\
+\9\9\9}),\
+\9\9}),\
+\9}\
+\9local _length_8 = #_children_7\
+\9local _attributes_8 = {\
+\9\9size = px(73, SLIDER_H),\
+\9\9position = px(205, 0),\
+\9}\
+\9local _children_8 = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9radius = 8,\
+\9\9\9transparency = theme.button.backgroundTransparency,\
+\9\9}),\
+\9}\
+\9local _length_9 = #_children_8\
+\9local _child_3 = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_3 then\
+\9\9if _child_3.elements ~= nil or _child_3.props ~= nil and _child_3.component ~= nil then\
+\9\9\9_children_8[_length_9 + 1] = _child_3\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_3) do\
+\9\9\9\9_children_8[_length_9 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_9 = #_children_8\
+\9_children_8[_length_9 + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Hue\",\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.button.foreground,\
+\9\9TextTransparency = theme.button.foregroundTransparency,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Size = scale(1, 1),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children_7[_length_8 + 1] = Roact.createElement(Canvas, _attributes_8, _children_8)\
+\9_children[_length_1 + 4] = Roact.createElement(\"Frame\", _attributes_7, _children_7)\
+\9_children[_length_1 + 5] = Roact.createElement(Canvas, {\
+\9\9size = px(278, SLIDER_H),\
+\9\9position = px(0, yToggles),\
+\9}, {\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"esp\",\
+\9\9\9hint = \"<font face='GothamBlack'>Highlight</font> — colored outline/fill on other players’ characters\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Highlight\",\
+\9\9\9position = px(0, 0),\
+\9\9\9size = px(62, SLIDER_H),\
+\9\9\9canDeactivate = subActiveCount > 1,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espName\",\
+\9\9\9hint = \"<font face='GothamBlack'>Names</font> — display name tags above players\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Names\",\
+\9\9\9position = px(72, 0),\
+\9\9\9size = px(62, SLIDER_H),\
+\9\9\9canDeactivate = subActiveCount > 1,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espHealth\",\
+\9\9\9hint = \"<font face='GothamBlack'>Health</font> — health bars above players\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Health\",\
+\9\9\9position = px(144, 0),\
+\9\9\9size = px(62, SLIDER_H),\
+\9\9\9canDeactivate = subActiveCount > 1,\
+\9\9}),\
+\9\9Roact.createElement(ActionButton, {\
+\9\9\9action = \"espTracers\",\
+\9\9\9hint = \"<font face='GothamBlack'>Tracers</font> — lines from the screen toward each player\",\
+\9\9\9theme = theme,\
+\9\9\9label = \"Tracers\",\
+\9\9\9position = px(216, 0),\
+\9\9\9size = px(62, SLIDER_H),\
+\9\9\9canDeactivate = subActiveCount > 1,\
+\9\9}),\
+\9})\
+\9return Roact.createElement(Canvas, _attributes, _children)\
+end\
+local default = hooked(EspPanel)\
+return {\
+\9default = default,\
+}\
+", '@'.."Orca.views.Pages.Apps.Visuals.EspPanel")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Visuals.EspPanel")) return fn() end)
+
+newModule("Visuals", "ModuleScript", "Orca.views.Pages.Apps.Visuals.Visuals", "Orca.views.Pages.Apps.Visuals", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
+local hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out).hooked\
+local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
+local Card = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"components\", \"Card\").default\
+local useAppDispatch = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\").useAppDispatch\
+local useTheme = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"hooks\", \"use-theme\").useTheme\
+local _dashboard_action = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"dashboard.action\")\
+local clearHint = _dashboard_action.clearHint\
+local setHint = _dashboard_action.setHint\
+local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"store\", \"models\", \"dashboard.model\").DashboardPage\
+local px = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"utils\", \"udim2\").px\
+local CameraFov = TS.import(script, script.Parent, \"CameraFov\").default\
+local EspPanel = TS.import(script, script.Parent, \"EspPanel\").default\
+local espBlockHeight = TS.import(script, script.Parent, \"esp-layout\").espBlockHeight\
+local _visuals_constants = TS.import(script, script.Parent, \"visuals.constants\")\
+local CARD_H = _visuals_constants.CARD_H\
+local CARD_PAD = _visuals_constants.CARD_PAD\
+local CARD_SIZE = _visuals_constants.CARD_SIZE\
+local DIVIDER_H = _visuals_constants.DIVIDER_H\
+local getCameraLayout = _visuals_constants.getCameraLayout\
+local function Visuals()\
+\9local dispatch = useAppDispatch()\
+\9local theme = useTheme(\"apps\").players\
+\9local _binding = getCameraLayout()\
+\9local yCameraTitle = _binding.yCameraTitle\
+\9local yCameraSubtitle = _binding.yCameraSubtitle\
+\9local yFovRow = _binding.yFovRow\
+\9local bottomFovY = _binding.bottomFovY\
+\9local espH = espBlockHeight()\
+\9local yEspTop = CARD_H - CARD_PAD - espH\
+\9local gapBetweenSections = yEspTop - bottomFovY\
+\9local innerPad = gapBetweenSections - DIVIDER_H\
+\9local padAboveDivider = innerPad >= 0 and math.floor(innerPad / 2) or 0\
+\9local yDivider = bottomFovY + padAboveDivider\
+\9return Roact.createElement(Card, {\
+\9\9index = 2,\
+\9\9page = DashboardPage.Apps,\
+\9\9theme = theme,\
+\9\9size = CARD_SIZE,\
+\9\9position = UDim2.new(0, 374, 1, 0),\
+\9}, {\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = \"Visuals\",\
+\9\9\9Font = \"GothamBlack\",\
+\9\9\9TextSize = 20,\
+\9\9\9TextColor3 = theme.foreground,\
+\9\9\9TextXAlignment = \"Left\",\
+\9\9\9TextYAlignment = \"Top\",\
+\9\9\9Position = px(CARD_PAD, CARD_PAD),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9return dispatch(setHint(\"<font face='GothamBlack'>Visuals</font> — camera field of view and player ESP options\"))\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return dispatch(clearHint())\
+\9\9\9end,\
+\9\9}),\
+\9\9Roact.createElement(CameraFov, {\
+\9\9\9theme = theme,\
+\9\9\9yCameraTitle = yCameraTitle,\
+\9\9\9yCameraSubtitle = yCameraSubtitle,\
+\9\9\9yFovRow = yFovRow,\
+\9\9}),\
+\9\9Roact.createElement(\"Frame\", {\
+\9\9\9Size = UDim2.new(1, -CARD_PAD * 2, 0, DIVIDER_H),\
+\9\9\9Position = px(CARD_PAD, yDivider),\
+\9\9\9BackgroundColor3 = theme.foreground,\
+\9\9\9BackgroundTransparency = 0.75,\
+\9\9\9BorderSizePixel = 0,\
+\9\9}),\
+\9\9Roact.createElement(Canvas, {\
+\9\9\9anchor = Vector2.new(0, 1),\
+\9\9\9position = UDim2.new(0, CARD_PAD, 1, -CARD_PAD),\
+\9\9\9size = px(278, espH),\
+\9\9}, {\
+\9\9\9Roact.createElement(EspPanel, {\
+\9\9\9\9theme = theme,\
+\9\9\9}),\
+\9\9}),\
+\9})\
+end\
+local default = hooked(Visuals)\
+return {\
+\9default = default,\
+}\
+", '@'.."Orca.views.Pages.Apps.Visuals.Visuals")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Visuals.Visuals")) return fn() end)
+
+newModule("esp-layout", "ModuleScript", "Orca.views.Pages.Apps.Visuals.esp-layout", "Orca.views.Pages.Apps.Visuals", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local SLIDER_H = TS.import(script, script.Parent, \"visuals.constants\").SLIDER_H\
+local ENABLE_BTN_W = 120\
+local ENABLE_BTN_H = 40\
+local ESP_HEADER_ROW_H = ENABLE_BTN_H\
+local PREVIEW_H = 104\
+local ESP_SECTION_GAP = 16\
+local SLIDER_STEP = SLIDER_H + ESP_SECTION_GAP\
+local function hueToColor(hue)\
+\9return Color3.fromHSV(hue / 360, 1, 1)\
+end\
+local function espBlockHeight()\
+\9return ESP_HEADER_ROW_H + ESP_SECTION_GAP + PREVIEW_H + ESP_SECTION_GAP + 4 * SLIDER_H + 3 * ESP_SECTION_GAP\
+end\
+local function getEspInternalLayout()\
+\9local y = 0\
+\9local yEspHeader = y\
+\9y += ESP_HEADER_ROW_H + ESP_SECTION_GAP\
+\9local yPreview = y\
+\9y += PREVIEW_H + ESP_SECTION_GAP\
+\9local yFill = y\
+\9y += SLIDER_STEP\
+\9local yOutline = y\
+\9y += SLIDER_STEP\
+\9local yHue = y\
+\9y += SLIDER_STEP\
+\9local yToggles = y\
+\9return {\
+\9\9yEspHeader = yEspHeader,\
+\9\9yPreview = yPreview,\
+\9\9yFill = yFill,\
+\9\9yOutline = yOutline,\
+\9\9yHue = yHue,\
+\9\9yToggles = yToggles,\
+\9}\
+end\
+return {\
+\9hueToColor = hueToColor,\
+\9espBlockHeight = espBlockHeight,\
+\9getEspInternalLayout = getEspInternalLayout,\
+\9ENABLE_BTN_W = ENABLE_BTN_W,\
+\9ENABLE_BTN_H = ENABLE_BTN_H,\
+\9ESP_HEADER_ROW_H = ESP_HEADER_ROW_H,\
+\9PREVIEW_H = PREVIEW_H,\
+\9ESP_SECTION_GAP = ESP_SECTION_GAP,\
+\9SLIDER_STEP = SLIDER_STEP,\
+}\
+", '@'.."Orca.views.Pages.Apps.Visuals.esp-layout")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Visuals.esp-layout")) return fn() end)
+
+newModule("visuals.constants", "ModuleScript", "Orca.views.Pages.Apps.Visuals.visuals.constants", "Orca.views.Pages.Apps.Visuals", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local px = TS.import(script, script.Parent.Parent.Parent.Parent.Parent, \"utils\", \"udim2\").px\
+local CARD_H = 648\
+local CARD_SIZE = px(326, CARD_H)\
+local CARD_PAD = 24\
+local SLIDER_H = 49\
+local SECTION_HEADING_TEXT = 17\
+local SECTION_HEADING_H = 22\
+local DIVIDER_H = 1\
+local DEFAULT_CAMERA_FOV = 70\
+local function getCameraLayout()\
+\9local yCameraTitle = 52\
+\9local yCameraSubtitle = yCameraTitle + SECTION_HEADING_H + 4\
+\9local yFovRow = yCameraSubtitle + 20 + 12\
+\9local bottomFovY = yFovRow + SLIDER_H\
+\9return {\
+\9\9yCameraTitle = yCameraTitle,\
+\9\9yCameraSubtitle = yCameraSubtitle,\
+\9\9yFovRow = yFovRow,\
+\9\9bottomFovY = bottomFovY,\
+\9}\
+end\
+return {\
+\9getCameraLayout = getCameraLayout,\
+\9CARD_H = CARD_H,\
+\9CARD_SIZE = CARD_SIZE,\
+\9CARD_PAD = CARD_PAD,\
+\9SLIDER_H = SLIDER_H,\
+\9SECTION_HEADING_TEXT = SECTION_HEADING_TEXT,\
+\9SECTION_HEADING_H = SECTION_HEADING_H,\
+\9DIVIDER_H = DIVIDER_H,\
+\9DEFAULT_CAMERA_FOV = DEFAULT_CAMERA_FOV,\
+}\
+", '@'.."Orca.views.Pages.Apps.Visuals.visuals.constants")) setfenv(fn, newEnv("Orca.views.Pages.Apps.Visuals.visuals.constants")) return fn() end)
 
 newModule("Home", "ModuleScript", "Orca.views.Pages.Home", "Orca.views.Pages", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
@@ -10130,7 +10939,7 @@ local function Shortcuts()\
 \9\9\9\9}),\
 \9\9\9\9Roact.createElement(ShortcutItem, {\
 \9\9\9\9\9onActivate = function()\
-\9\9\9\9\9\9dispatch(setJobActive(\"esp\", not store:getState().jobs.esp.active))\
+\9\9\9\9\9\9dispatch(setJobActive(\"espEnabled\", not store:getState().jobs.espEnabled.active))\
 \9\9\9\9\9end,\
 \9\9\9\9\9onSelect = setSelectedItem,\
 \9\9\9\9\9selectedItem = selectedItem,\
@@ -10862,6 +11671,1020 @@ return {\
 }\
 ", '@'.."Orca.views.Pages.Scripts.ScriptCard")) setfenv(fn, newEnv("Orca.views.Pages.Scripts.ScriptCard")) return fn() end)
 
+newModule("ScriptManager", "ModuleScript", "Orca.views.Pages.Scripts.ScriptManager", "Orca.views.Pages.Scripts", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
+local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
+local _roact_hooked = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out)\
+local hooked = _roact_hooked.hooked\
+local useBinding = _roact_hooked.useBinding\
+local useEffect = _roact_hooked.useEffect\
+local useState = _roact_hooked.useState\
+local HttpService = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\")).HttpService\
+local Acrylic = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Acrylic\").default\
+local Border = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Border\").default\
+local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
+local Fill = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Fill\").default\
+local _rodux_hooks = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"rodux-hooks\")\
+local useAppDispatch = _rodux_hooks.useAppDispatch\
+local useAppSelector = _rodux_hooks.useAppSelector\
+local useDelayedUpdate = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"use-delayed-update\").useDelayedUpdate\
+local useIsMount = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"use-did-mount\").useIsMount\
+local useForcedUpdate = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"use-forced-update\").useForcedUpdate\
+local useSpring = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"common\", \"use-spring\").useSpring\
+local useIsPageOpen = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-current-page\").useIsPageOpen\
+local useTheme = TS.import(script, script.Parent.Parent.Parent.Parent, \"hooks\", \"use-theme\").useTheme\
+local _dashboard_action = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"dashboard.action\")\
+local clearHint = _dashboard_action.clearHint\
+local setHint = _dashboard_action.setHint\
+local _scripts_action = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"actions\", \"scripts.action\")\
+local addScript = _scripts_action.addScript\
+local removeScript = _scripts_action.removeScript\
+local updateScript = _scripts_action.updateScript\
+local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent, \"store\", \"models\", \"dashboard.model\").DashboardPage\
+local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
+local px = _udim2.px\
+local scale = _udim2.scale\
+local _script_files = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"script-files\")\
+local SCRIPTS_FOLDER = _script_files.SCRIPTS_FOLDER\
+local toFilename = _script_files.toFilename\
+local BASE_PADDING = TS.import(script, script.Parent, \"constants\").BASE_PADDING\
+local ROW_HEIGHT = 56\
+local ROW_GAP = 8\
+local HEADER_HEIGHT = 72\
+local FORM_HEIGHT = 300\
+local INNER_PAD = 20\
+local springPanel = {\
+\9frequency = 2.2,\
+\9dampingRatio = 0.78,\
+}\
+local springReveal = {\
+\9frequency = 2.5,\
+\9dampingRatio = 0.88,\
+}\
+local springLayout = {\
+\9frequency = 2.6,\
+\9dampingRatio = 0.82,\
+}\
+local springRowEnter = {\
+\9frequency = 3.2,\
+\9dampingRatio = 0.78,\
+}\
+local springRowExit = {\
+\9frequency = 3.2,\
+\9dampingRatio = 1,\
+}\
+local springRunPing = {\
+\9frequency = 5,\
+\9dampingRatio = 0.62,\
+}\
+local DELETE_ANIM_SEC = 0.48\
+local HINT_RUN_OK_SEC = 2.2\
+local HINT_RUN_ERR_SEC = 3.5\
+local HINT_NAME_TAKEN_SEC = 2.8\
+local SCRIPT_ICON_CROSS = \"rbxassetid://100953464106901\"\
+local SCRIPT_ICON_PLUS = \"rbxassetid://129192126219257\"\
+local SCRIPT_ICON_RUN = \"rbxassetid://83476009110981\"\
+local SCRIPT_ICON_EDIT = \"rbxassetid://111130813561810\"\
+local ICON_INSET_40 = 22\
+local function subtleHairline(theme)\
+\9return theme.foreground:Lerp(theme.background, 0.58)\
+end\
+local function ScriptRow(_param)\
+\9local theme = _param.theme\
+\9local name = _param.name\
+\9local index = _param.index\
+\9local isExiting = _param.isExiting\
+\9local onRun = _param.onRun\
+\9local onEdit = _param.onEdit\
+\9local onDelete = _param.onDelete\
+\9local _binding = useState(false)\
+\9local runHover = _binding[1]\
+\9local setRunHover = _binding[2]\
+\9local _binding_1 = useState(false)\
+\9local editHover = _binding_1[1]\
+\9local setEditHover = _binding_1[2]\
+\9local _binding_2 = useState(false)\
+\9local delHover = _binding_2[1]\
+\9local setDelHover = _binding_2[2]\
+\9local _binding_3 = useState(0)\
+\9local entered = _binding_3[1]\
+\9local setEntered = _binding_3[2]\
+\9local _binding_4 = useState(0)\
+\9local runPing = _binding_4[1]\
+\9local setRunPing = _binding_4[2]\
+\9local targetY = INNER_PAD + index * (ROW_HEIGHT + ROW_GAP)\
+\9local yLayout = useSpring(targetY, springLayout)\
+\9useEffect(function()\
+\9\9task.defer(function()\
+\9\9\9return setEntered(1)\
+\9\9end)\
+\9end, {})\
+\9local enterT = useSpring(entered, springRowEnter)\
+\9local exitT = useSpring(isExiting and 1 or 0, springRowExit)\
+\9local runPingSpr = useSpring(runPing, springRunPing)\
+\9local yPos = Roact.joinBindings({\
+\9\9yLayout = yLayout,\
+\9\9enterT = enterT,\
+\9}):map(function(_param_1)\
+\9\9local yLayout = _param_1.yLayout\
+\9\9local enterT = _param_1.enterT\
+\9\9return math.round(yLayout - (1 - enterT) * 18)\
+\9end)\
+\9local rowFillTransparency = Roact.joinBindings({\
+\9\9enterT = enterT,\
+\9\9exitT = exitT,\
+\9}):map(function(_param_1)\
+\9\9local enterT = _param_1.enterT\
+\9\9local exitT = _param_1.exitT\
+\9\9return math.min(1, math.max(0, 0.25 + (1 - enterT) * 0.5 + exitT * 0.62))\
+\9end)\
+\9local glyphFade = Roact.joinBindings({\
+\9\9enterT = enterT,\
+\9\9exitT = exitT,\
+\9}):map(function(_param_1)\
+\9\9local enterT = _param_1.enterT\
+\9\9local exitT = _param_1.exitT\
+\9\9return math.min(1, math.max(0, (1 - enterT) * 0.4 + exitT * 0.85))\
+\9end)\
+\9local rowScale = exitT:map(function(t)\
+\9\9return math.max(0.04, 1 - t * 0.92)\
+\9end)\
+\9local runAccent = theme.highlight.teleport\
+\9local editAccent = theme.highlight.spectate\
+\9local delAccent = theme.highlight.kill\
+\9local _result\
+\9if runHover then\
+\9\9local _condition = theme.button.backgroundHovered\
+\9\9if _condition == nil then\
+\9\9\9_condition = theme.button.background:Lerp(runAccent, 0.35)\
+\9\9end\
+\9\9_result = _condition\
+\9else\
+\9\9_result = theme.button.background\
+\9end\
+\9local runBgBase = useSpring(_result, {})\
+\9local runFill = Roact.joinBindings({\
+\9\9runBgBase = runBgBase,\
+\9\9runPingSpr = runPingSpr,\
+\9}):map(function(_param_1)\
+\9\9local runBgBase = _param_1.runBgBase\
+\9\9local runPingSpr = _param_1.runPingSpr\
+\9\9return runBgBase:Lerp(runAccent, runPingSpr * 0.5)\
+\9end)\
+\9local _result_1\
+\9if editHover then\
+\9\9local _condition = theme.button.backgroundHovered\
+\9\9if _condition == nil then\
+\9\9\9_condition = theme.button.background:Lerp(editAccent, 0.35)\
+\9\9end\
+\9\9_result_1 = _condition\
+\9else\
+\9\9_result_1 = theme.button.background\
+\9end\
+\9local editBg = useSpring(_result_1, {})\
+\9local _result_2\
+\9if delHover then\
+\9\9local _condition = theme.button.backgroundHovered\
+\9\9if _condition == nil then\
+\9\9\9_condition = theme.button.background:Lerp(delAccent, 0.35)\
+\9\9end\
+\9\9_result_2 = _condition\
+\9else\
+\9\9_result_2 = theme.button.background\
+\9end\
+\9local delBg = useSpring(_result_2, {})\
+\9local function handleRun()\
+\9\9setRunPing(1)\
+\9\9task.delay(0.12, function()\
+\9\9\9return setRunPing(0)\
+\9\9end)\
+\9\9onRun()\
+\9end\
+\9local _attributes = {\
+\9\9size = UDim2.new(1, -(INNER_PAD * 2), 0, ROW_HEIGHT),\
+\9\9position = yPos:map(function(y)\
+\9\9\9return UDim2.new(0, INNER_PAD, 0, y)\
+\9\9end),\
+\9}\
+\9local _children = {\
+\9\9Roact.createElement(\"UIScale\", {\
+\9\9\9Scale = rowScale,\
+\9\9}),\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.button.background,\
+\9\9\9transparency = rowFillTransparency,\
+\9\9\9radius = 10,\
+\9\9}),\
+\9}\
+\9local _length = #_children\
+\9local _child = theme.button.outlined and Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 10,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child then\
+\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
+\9\9\9_children[_length + 1] = _child\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child) do\
+\9\9\9\9_children[_length + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length = #_children\
+\9_children[_length + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = name,\
+\9\9Font = \"GothamBold\",\
+\9\9TextSize = 16,\
+\9\9TextColor3 = theme.foreground,\
+\9\9TextTransparency = glyphFade,\
+\9\9TextXAlignment = \"Left\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Position = px(14, 0),\
+\9\9Size = UDim2.new(1, -184, 1, 0),\
+\9\9BackgroundTransparency = 1,\
+\9\9TextTruncate = \"AtEnd\",\
+\9})\
+\9_children[_length + 2] = Roact.createElement(Canvas, {\
+\9\9size = px(40, 40),\
+\9\9position = UDim2.new(1, -136, 0.5, -20),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = editBg,\
+\9\9\9radius = 8,\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = editAccent,\
+\9\9\9radius = 8,\
+\9\9\9transparency = useSpring(editHover and 0.35 or 0.72, {}),\
+\9\9}),\
+\9\9Roact.createElement(\"ImageLabel\", {\
+\9\9\9Image = SCRIPT_ICON_EDIT,\
+\9\9\9ImageColor3 = theme.foreground,\
+\9\9\9ImageTransparency = glyphFade,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
+\9\9\9Position = scale(0.5, 0.5),\
+\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9}),\
+\9\9Roact.createElement(\"TextButton\", {\
+\9\9\9Text = \"\",\
+\9\9\9AutoButtonColor = false,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9Active = not isExiting,\
+\9\9\9[Roact.Event.Activated] = function()\
+\9\9\9\9if not isExiting then\
+\9\9\9\9\9onEdit()\
+\9\9\9\9end\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9if not isExiting then\
+\9\9\9\9\9setEditHover(true)\
+\9\9\9\9end\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return setEditHover(false)\
+\9\9\9end,\
+\9\9}),\
+\9})\
+\9_children[_length + 3] = Roact.createElement(Canvas, {\
+\9\9size = px(40, 40),\
+\9\9position = UDim2.new(1, -90, 0.5, -20),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = runFill,\
+\9\9\9radius = 8,\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = runAccent,\
+\9\9\9radius = 8,\
+\9\9\9transparency = useSpring(runHover and 0.35 or 0.72, {}),\
+\9\9}),\
+\9\9Roact.createElement(\"ImageLabel\", {\
+\9\9\9Image = SCRIPT_ICON_RUN,\
+\9\9\9ImageColor3 = theme.foreground,\
+\9\9\9ImageTransparency = glyphFade,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
+\9\9\9Position = scale(0.5, 0.5),\
+\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9}),\
+\9\9Roact.createElement(\"TextButton\", {\
+\9\9\9Text = \"\",\
+\9\9\9AutoButtonColor = false,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9[Roact.Event.Activated] = function()\
+\9\9\9\9return handleRun()\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9return setRunHover(true)\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return setRunHover(false)\
+\9\9\9end,\
+\9\9}),\
+\9})\
+\9_children[_length + 4] = Roact.createElement(Canvas, {\
+\9\9size = px(40, 40),\
+\9\9position = UDim2.new(1, -44, 0.5, -20),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = delBg,\
+\9\9\9radius = 8,\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = delAccent,\
+\9\9\9radius = 8,\
+\9\9\9transparency = useSpring(delHover and 0.35 or 0.72, {}),\
+\9\9}),\
+\9\9Roact.createElement(\"ImageLabel\", {\
+\9\9\9Image = SCRIPT_ICON_CROSS,\
+\9\9\9ImageColor3 = theme.foreground,\
+\9\9\9ImageTransparency = glyphFade,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
+\9\9\9Position = scale(0.5, 0.5),\
+\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9}),\
+\9\9Roact.createElement(\"TextButton\", {\
+\9\9\9Text = \"\",\
+\9\9\9AutoButtonColor = false,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9Active = not isExiting,\
+\9\9\9[Roact.Event.Activated] = function()\
+\9\9\9\9if not isExiting then\
+\9\9\9\9\9onDelete()\
+\9\9\9\9end\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9if not isExiting then\
+\9\9\9\9\9setDelHover(true)\
+\9\9\9\9end\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return setDelHover(false)\
+\9\9\9end,\
+\9\9}),\
+\9})\
+\9return Roact.createElement(Canvas, _attributes, _children)\
+end\
+local ScriptRowHooked = hooked(ScriptRow)\
+local function ScriptManager()\
+\9local dispatch = useAppDispatch()\
+\9local theme = useTheme(\"apps\").players\
+\9local scripts = useAppSelector(function(state)\
+\9\9return state.scripts.scripts\
+\9end)\
+\9local _binding = useState(nil)\
+\9local exitingScriptId = _binding[1]\
+\9local setExitingScriptId = _binding[2]\
+\9local isCurrentlyOpen = useIsPageOpen(DashboardPage.Scripts)\
+\9local _result\
+\9if useIsMount() then\
+\9\9_result = false\
+\9else\
+\9\9_result = isCurrentlyOpen\
+\9end\
+\9local isOpen = _result\
+\9local isTransitioning = useDelayedUpdate(isOpen, 2 * 30)\
+\9local forceUpdate = useForcedUpdate()\
+\9useEffect(function()\
+\9\9return forceUpdate()\
+\9end, {})\
+\9local _binding_1 = useState(false)\
+\9local showForm = _binding_1[1]\
+\9local setShowForm = _binding_1[2]\
+\9local _binding_2 = useState(nil)\
+\9local editingScriptId = _binding_2[1]\
+\9local setEditingScriptId = _binding_2[2]\
+\9local _binding_3 = useState(false)\
+\9local addHover = _binding_3[1]\
+\9local setAddHover = _binding_3[2]\
+\9local _binding_4 = useState(false)\
+\9local saveHover = _binding_4[1]\
+\9local setSaveHover = _binding_4[2]\
+\9local _binding_5 = useBinding(\"\")\
+\9local nameText = _binding_5[1]\
+\9local setNameText = _binding_5[2]\
+\9local _binding_6 = useBinding(\"\")\
+\9local codeText = _binding_6[1]\
+\9local setCodeText = _binding_6[2]\
+\9local finalPosition = UDim2.new(1 / 3, BASE_PADDING / 2, 0.5, 0)\
+\9local _result_1\
+\9if isTransitioning then\
+\9\9_result_1 = finalPosition\
+\9else\
+\9\9local _uDim2 = UDim2.new(0, 0, 1, 48 * 3 + 56)\
+\9\9_result_1 = finalPosition + _uDim2\
+\9end\
+\9local animPosition = useSpring(_result_1, springPanel)\
+\9local formReveal = useSpring(showForm and 1 or 0, springReveal)\
+\9local formBlockH = formReveal:map(function(t)\
+\9\9return math.round(t * (FORM_HEIGHT + 1))\
+\9end)\
+\9local listTopBinding = formBlockH:map(function(h)\
+\9\9return HEADER_HEIGHT + 1 + h\
+\9end)\
+\9local scrollContentH = INNER_PAD * 2 + math.max(64, #scripts * (ROW_HEIGHT + ROW_GAP) - ROW_GAP)\
+\9local scrollCanvasH = useSpring(scrollContentH, springLayout)\
+\9local addAccent = theme.highlight.espEnabled\
+\9local closeAccent = theme.highlight.kill\
+\9local _result_2\
+\9if showForm then\
+\9\9local _condition = theme.button.backgroundHovered\
+\9\9if _condition == nil then\
+\9\9\9_condition = theme.button.background:Lerp(closeAccent, 0.22)\
+\9\9end\
+\9\9_result_2 = _condition\
+\9else\
+\9\9local _result_3\
+\9\9if addHover then\
+\9\9\9local _condition = theme.button.backgroundHovered\
+\9\9\9if _condition == nil then\
+\9\9\9\9_condition = theme.button.background:Lerp(addAccent, 0.22)\
+\9\9\9end\
+\9\9\9_result_3 = _condition\
+\9\9else\
+\9\9\9_result_3 = theme.button.background\
+\9\9end\
+\9\9_result_2 = _result_3\
+\9end\
+\9local headerToggleFill = useSpring(_result_2, {})\
+\9local headerToggleStroke = useSpring(showForm and closeAccent or addAccent, {})\
+\9local function openNewForm()\
+\9\9setEditingScriptId(nil)\
+\9\9setNameText(\"\")\
+\9\9setCodeText(\"\")\
+\9\9setShowForm(true)\
+\9end\
+\9local function openEditForm(entry)\
+\9\9setEditingScriptId(entry.id)\
+\9\9setNameText(entry.name)\
+\9\9setCodeText(entry.code)\
+\9\9setShowForm(true)\
+\9end\
+\9local function closeForm()\
+\9\9setShowForm(false)\
+\9\9setEditingScriptId(nil)\
+\9\9setNameText(\"\")\
+\9\9setCodeText(\"\")\
+\9end\
+\9useEffect(function()\
+\9\9if editingScriptId == nil then\
+\9\9\9return nil\
+\9\9end\
+\9\9local _arg0 = function(s)\
+\9\9\9return s.id == editingScriptId\
+\9\9end\
+\9\9-- ▼ ReadonlyArray.find ▼\
+\9\9local _result_3 = nil\
+\9\9for _i, _v in ipairs(scripts) do\
+\9\9\9if _arg0(_v, _i - 1, scripts) == true then\
+\9\9\9\9_result_3 = _v\
+\9\9\9\9break\
+\9\9\9end\
+\9\9end\
+\9\9-- ▲ ReadonlyArray.find ▲\
+\9\9if _result_3 == nil then\
+\9\9\9setShowForm(false)\
+\9\9\9setEditingScriptId(nil)\
+\9\9\9setNameText(\"\")\
+\9\9\9setCodeText(\"\")\
+\9\9end\
+\9end, { scripts, editingScriptId })\
+\9local function handleSave()\
+\9\9local name = nameText:getValue()\
+\9\9local code = codeText:getValue()\
+\9\9if name == \"\" or code == \"\" then\
+\9\9\9return nil\
+\9\9end\
+\9\9local filename = toFilename(name)\
+\9\9if editingScriptId ~= nil then\
+\9\9\9local _arg0 = function(s)\
+\9\9\9\9return s.id == editingScriptId\
+\9\9\9end\
+\9\9\9-- ▼ ReadonlyArray.find ▼\
+\9\9\9local _result_3 = nil\
+\9\9\9for _i, _v in ipairs(scripts) do\
+\9\9\9\9if _arg0(_v, _i - 1, scripts) == true then\
+\9\9\9\9\9_result_3 = _v\
+\9\9\9\9\9break\
+\9\9\9\9end\
+\9\9\9end\
+\9\9\9-- ▲ ReadonlyArray.find ▲\
+\9\9\9local existing = _result_3\
+\9\9\9if existing == nil then\
+\9\9\9\9closeForm()\
+\9\9\9\9return nil\
+\9\9\9end\
+\9\9\9local _arg0_1 = function(s)\
+\9\9\9\9return s.filename == filename and s.id ~= editingScriptId\
+\9\9\9end\
+\9\9\9-- ▼ ReadonlyArray.find ▼\
+\9\9\9local _result_4 = nil\
+\9\9\9for _i, _v in ipairs(scripts) do\
+\9\9\9\9if _arg0_1(_v, _i - 1, scripts) == true then\
+\9\9\9\9\9_result_4 = _v\
+\9\9\9\9\9break\
+\9\9\9\9end\
+\9\9\9end\
+\9\9\9-- ▲ ReadonlyArray.find ▲\
+\9\9\9local nameTaken = _result_4\
+\9\9\9if nameTaken ~= nil then\
+\9\9\9\9dispatch(setHint(\"<font face='GothamBlack'>Not saved</font> — another script already uses the name <b>\" .. (filename .. \"</b>.\")))\
+\9\9\9\9task.delay(HINT_NAME_TAKEN_SEC, function()\
+\9\9\9\9\9return dispatch(clearHint())\
+\9\9\9\9end)\
+\9\9\9\9return nil\
+\9\9\9end\
+\9\9\9local _exitType, _returns = TS.try(function()\
+\9\9\9\9writefile(SCRIPTS_FOLDER .. (\"/\" .. (filename .. \".lua\")), code)\
+\9\9\9\9if filename ~= existing.filename then\
+\9\9\9\9\9delfile(SCRIPTS_FOLDER .. (\"/\" .. (existing.filename .. \".lua\")))\
+\9\9\9\9end\
+\9\9\9end, function(e)\
+\9\9\9\9warn(\"[Orca] Failed to update script '\" .. (filename .. (\"': \" .. tostring(e))))\
+\9\9\9\9return TS.TRY_RETURN, {}\
+\9\9\9end)\
+\9\9\9if _exitType then\
+\9\9\9\9return unpack(_returns)\
+\9\9\9end\
+\9\9\9dispatch(updateScript({\
+\9\9\9\9id = existing.id,\
+\9\9\9\9name = name,\
+\9\9\9\9filename = filename,\
+\9\9\9\9code = code,\
+\9\9\9}))\
+\9\9\9closeForm()\
+\9\9\9return nil\
+\9\9end\
+\9\9local _arg0 = function(s)\
+\9\9\9return s.filename == filename\
+\9\9end\
+\9\9-- ▼ ReadonlyArray.find ▼\
+\9\9local _result_3 = nil\
+\9\9for _i, _v in ipairs(scripts) do\
+\9\9\9if _arg0(_v, _i - 1, scripts) == true then\
+\9\9\9\9_result_3 = _v\
+\9\9\9\9break\
+\9\9\9end\
+\9\9end\
+\9\9-- ▲ ReadonlyArray.find ▲\
+\9\9if _result_3 ~= nil then\
+\9\9\9dispatch(setHint(\"<font face='GothamBlack'>Not saved</font> — <b>\" .. (filename .. \"</b> already exists. Edit that script or pick another name.\")))\
+\9\9\9task.delay(HINT_NAME_TAKEN_SEC, function()\
+\9\9\9\9return dispatch(clearHint())\
+\9\9\9end)\
+\9\9\9return nil\
+\9\9end\
+\9\9local _exitType, _returns = TS.try(function()\
+\9\9\9writefile(SCRIPTS_FOLDER .. (\"/\" .. (filename .. \".lua\")), code)\
+\9\9end, function(e)\
+\9\9\9warn(\"[Orca] Failed to save script '\" .. (filename .. (\"': \" .. tostring(e))))\
+\9\9\9return TS.TRY_RETURN, {}\
+\9\9end)\
+\9\9if _exitType then\
+\9\9\9return unpack(_returns)\
+\9\9end\
+\9\9dispatch(addScript({\
+\9\9\9id = HttpService:GenerateGUID(false),\
+\9\9\9name = name,\
+\9\9\9filename = filename,\
+\9\9\9code = code,\
+\9\9}))\
+\9\9closeForm()\
+\9end\
+\9local function runUserScript(code, name)\
+\9\9TS.try(function()\
+\9\9\9local fn, err = loadstring(code, \"@\" .. name)\
+\9\9\9local _arg1 = \"Failed to compile script '\" .. (name .. (\"': \" .. tostring(err)))\
+\9\9\9assert(fn, _arg1)\
+\9\9\9dispatch(setHint(\"<font face='GothamBlack'>Running</font> <b>\" .. (name .. \"</b> — queued on the next defer.\")))\
+\9\9\9task.defer(fn)\
+\9\9\9task.delay(HINT_RUN_OK_SEC, function()\
+\9\9\9\9return dispatch(clearHint())\
+\9\9\9end)\
+\9\9end, function(e)\
+\9\9\9warn(\"Failed to run script '\" .. (name .. (\"': \" .. tostring(e))))\
+\9\9\9dispatch(setHint(\"<font face='GothamBlack'>Run failed</font> — <b>\" .. (name .. (\"</b>: \" .. tostring(e)))))\
+\9\9\9task.delay(HINT_RUN_ERR_SEC, function()\
+\9\9\9\9return dispatch(clearHint())\
+\9\9\9end)\
+\9\9end)\
+\9end\
+\9local function scheduleDelete(entry)\
+\9\9if exitingScriptId ~= nil then\
+\9\9\9return nil\
+\9\9end\
+\9\9setExitingScriptId(entry.id)\
+\9\9task.delay(DELETE_ANIM_SEC, function()\
+\9\9\9TS.try(function()\
+\9\9\9\9delfile(SCRIPTS_FOLDER .. (\"/\" .. (entry.filename .. \".lua\")))\
+\9\9\9end, function(e)\
+\9\9\9\9warn(\"[Orca] Could not delete script file: \" .. tostring(e))\
+\9\9\9end)\
+\9\9\9dispatch(removeScript(entry.id))\
+\9\9\9setExitingScriptId(nil)\
+\9\9end)\
+\9end\
+\9local inputBg = theme.avatar.background\
+\9local hairline = subtleHairline(theme)\
+\9local mutedFg = theme.foreground\
+\9local saveAccent = theme.highlight.espEnabled\
+\9local _result_3\
+\9if saveHover then\
+\9\9local _condition = theme.button.backgroundHovered\
+\9\9if _condition == nil then\
+\9\9\9_condition = saveAccent:Lerp(theme.foreground, 0.08)\
+\9\9end\
+\9\9_result_3 = _condition\
+\9else\
+\9\9_result_3 = saveAccent\
+\9end\
+\9local saveFill = useSpring(_result_3, {})\
+\9local _result_4\
+\9if saveHover then\
+\9\9local _condition = theme.button.foregroundAccent\
+\9\9if _condition == nil then\
+\9\9\9_condition = theme.foreground\
+\9\9end\
+\9\9_result_4 = _condition\
+\9else\
+\9\9_result_4 = theme.foreground\
+\9end\
+\9local saveLabelColor = useSpring(_result_4, {})\
+\9local _attributes = {\
+\9\9size = UDim2.new(2 / 3, -BASE_PADDING, 1, -BASE_PADDING),\
+\9\9position = animPosition,\
+\9\9anchor = Vector2.new(0, 0.5),\
+\9}\
+\9local _children = {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = theme.background,\
+\9\9\9gradient = theme.backgroundGradient,\
+\9\9\9transparency = theme.transparency,\
+\9\9\9radius = 20,\
+\9\9}),\
+\9}\
+\9local _length = #_children\
+\9local _child = theme.acrylic and Roact.createFragment({\
+\9\9acrylic = Roact.createElement(Acrylic, {\
+\9\9\9radius = 20,\
+\9\9}),\
+\9})\
+\9if _child then\
+\9\9if _child.elements ~= nil or _child.props ~= nil and _child.component ~= nil then\
+\9\9\9_children[_length + 1] = _child\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child) do\
+\9\9\9\9_children[_length + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length = #_children\
+\9local _child_1 = theme.outlined and Roact.createElement(Border, {\
+\9\9color = theme.foreground,\
+\9\9radius = 20,\
+\9\9transparency = 0.8,\
+\9})\
+\9if _child_1 then\
+\9\9if _child_1.elements ~= nil or _child_1.props ~= nil and _child_1.component ~= nil then\
+\9\9\9_children[_length + 1] = _child_1\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_1) do\
+\9\9\9\9_children[_length + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length = #_children\
+\9_children[_length + 1] = Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"Script Manager\",\
+\9\9Font = \"GothamBlack\",\
+\9\9TextSize = 22,\
+\9\9TextColor3 = theme.foreground,\
+\9\9TextXAlignment = \"Left\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9Position = px(INNER_PAD, 0),\
+\9\9Size = UDim2.new(1, -(INNER_PAD + 72), 0, HEADER_HEIGHT),\
+\9\9BackgroundTransparency = 1,\
+\9})\
+\9_children[_length + 2] = Roact.createElement(Canvas, {\
+\9\9size = px(40, 40),\
+\9\9position = UDim2.new(1, -56, 0, 16),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = headerToggleFill,\
+\9\9\9radius = 10,\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = headerToggleStroke,\
+\9\9\9radius = 10,\
+\9\9\9transparency = useSpring(showForm and 0.35 or 0.45, {}),\
+\9\9}),\
+\9\9showForm and (Roact.createElement(\"ImageLabel\", {\
+\9\9\9Image = SCRIPT_ICON_CROSS,\
+\9\9\9ImageColor3 = theme.foreground,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
+\9\9\9Position = scale(0.5, 0.5),\
+\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9})) or (Roact.createElement(\"ImageLabel\", {\
+\9\9\9Image = SCRIPT_ICON_PLUS,\
+\9\9\9ImageColor3 = theme.foreground,\
+\9\9\9ScaleType = Enum.ScaleType.Fit,\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
+\9\9\9Position = scale(0.5, 0.5),\
+\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9})),\
+\9\9Roact.createElement(\"TextButton\", {\
+\9\9\9Text = \"\",\
+\9\9\9AutoButtonColor = false,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9[Roact.Event.Activated] = function()\
+\9\9\9\9local _result_5\
+\9\9\9\9if showForm then\
+\9\9\9\9\9_result_5 = closeForm()\
+\9\9\9\9else\
+\9\9\9\9\9_result_5 = openNewForm()\
+\9\9\9\9end\
+\9\9\9\9return _result_5\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9return setAddHover(true)\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return setAddHover(false)\
+\9\9\9end,\
+\9\9}),\
+\9})\
+\9_children[_length + 3] = Roact.createElement(\"Frame\", {\
+\9\9Size = UDim2.new(1, -(INNER_PAD * 2), 0, 1),\
+\9\9Position = px(INNER_PAD, HEADER_HEIGHT),\
+\9\9BackgroundColor3 = hairline,\
+\9\9BackgroundTransparency = theme.outlined and 0.78 or 0.88,\
+\9\9BorderSizePixel = 0,\
+\9})\
+\9local _attributes_1 = {\
+\9\9size = formBlockH:map(function(h)\
+\9\9\9return UDim2.new(1, 0, 0, h)\
+\9\9end),\
+\9\9position = px(0, HEADER_HEIGHT + 1),\
+\9\9clipsDescendants = true,\
+\9}\
+\9local _children_1 = {}\
+\9local _length_1 = #_children_1\
+\9local _attributes_2 = {\
+\9\9size = UDim2.new(1, 0, 0, FORM_HEIGHT),\
+\9\9position = px(0, 0),\
+\9\9padding = {\
+\9\9\9left = INNER_PAD,\
+\9\9\9right = INNER_PAD,\
+\9\9\9top = 14,\
+\9\9\9bottom = 14,\
+\9\9},\
+\9}\
+\9local _children_2 = {}\
+\9local _length_2 = #_children_2\
+\9local _attributes_3 = {\
+\9\9Size = UDim2.new(1, 0, 0, 38),\
+\9\9Position = px(0, 0),\
+\9\9BackgroundColor3 = inputBg,\
+\9\9BackgroundTransparency = 0,\
+\9\9BorderSizePixel = 0,\
+\9}\
+\9local _children_3 = {\
+\9\9Roact.createElement(\"UICorner\", {\
+\9\9\9CornerRadius = UDim.new(0, 8),\
+\9\9}),\
+\9}\
+\9local _length_3 = #_children_3\
+\9local _child_2 = theme.button.outlined and (Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.35,\
+\9}))\
+\9if _child_2 then\
+\9\9if _child_2.elements ~= nil or _child_2.props ~= nil and _child_2.component ~= nil then\
+\9\9\9_children_3[_length_3 + 1] = _child_2\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_2) do\
+\9\9\9\9_children_3[_length_3 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_3 = #_children_3\
+\9_children_3[_length_3 + 1] = Roact.createElement(\"TextBox\", {\
+\9\9Text = nameText,\
+\9\9PlaceholderText = \"Script name\",\
+\9\9PlaceholderColor3 = mutedFg:Lerp(theme.background, 0.35),\
+\9\9Font = \"Gotham\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = theme.foreground,\
+\9\9TextXAlignment = \"Left\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9ClearTextOnFocus = false,\
+\9\9Position = px(12, 0),\
+\9\9Size = UDim2.new(1, -24, 1, 0),\
+\9\9BackgroundTransparency = 1,\
+\9\9BorderSizePixel = 0,\
+\9\9[Roact.Change.Text] = function(rbx)\
+\9\9\9setNameText(rbx.Text)\
+\9\9end,\
+\9})\
+\9_children_2[_length_2 + 1] = Roact.createElement(\"Frame\", _attributes_3, _children_3)\
+\9local _attributes_4 = {\
+\9\9Size = UDim2.new(1, 0, 0, 196),\
+\9\9Position = px(0, 46),\
+\9\9BackgroundColor3 = inputBg,\
+\9\9BackgroundTransparency = 0,\
+\9\9BorderSizePixel = 0,\
+\9\9ClipsDescendants = true,\
+\9}\
+\9local _children_4 = {\
+\9\9Roact.createElement(\"UICorner\", {\
+\9\9\9CornerRadius = UDim.new(0, 8),\
+\9\9}),\
+\9}\
+\9local _length_4 = #_children_4\
+\9local _child_3 = theme.button.outlined and (Roact.createElement(Border, {\
+\9\9color = theme.button.foreground,\
+\9\9radius = 8,\
+\9\9transparency = 0.35,\
+\9}))\
+\9if _child_3 then\
+\9\9if _child_3.elements ~= nil or _child_3.props ~= nil and _child_3.component ~= nil then\
+\9\9\9_children_4[_length_4 + 1] = _child_3\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_3) do\
+\9\9\9\9_children_4[_length_4 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_4 = #_children_4\
+\9_children_4[_length_4 + 1] = Roact.createElement(\"TextBox\", {\
+\9\9Text = codeText,\
+\9\9PlaceholderText = '-- paste or write your Lua script here\\nprint(\"Hello from Orca!\")',\
+\9\9PlaceholderColor3 = mutedFg:Lerp(theme.background, 0.35),\
+\9\9Font = \"Code\",\
+\9\9TextSize = 13,\
+\9\9TextColor3 = theme.foreground,\
+\9\9TextXAlignment = \"Left\",\
+\9\9TextYAlignment = \"Top\",\
+\9\9MultiLine = true,\
+\9\9ClearTextOnFocus = false,\
+\9\9Position = px(10, 8),\
+\9\9Size = UDim2.new(1, -20, 1, -16),\
+\9\9BackgroundTransparency = 1,\
+\9\9BorderSizePixel = 0,\
+\9\9[Roact.Change.Text] = function(rbx)\
+\9\9\9setCodeText(rbx.Text)\
+\9\9end,\
+\9})\
+\9_children_2[_length_2 + 2] = Roact.createElement(\"Frame\", _attributes_4, _children_4)\
+\9_children_2[_length_2 + 3] = Roact.createElement(Canvas, {\
+\9\9size = UDim2.new(1, 0, 0, 38),\
+\9\9position = px(0, 250),\
+\9}, {\
+\9\9Roact.createElement(Fill, {\
+\9\9\9color = saveFill,\
+\9\9\9radius = 8,\
+\9\9\9transparency = 0.12,\
+\9\9}),\
+\9\9Roact.createElement(Border, {\
+\9\9\9color = saveAccent,\
+\9\9\9radius = 8,\
+\9\9\9transparency = useSpring(saveHover and 0.35 or 0.55, {}),\
+\9\9}),\
+\9\9Roact.createElement(\"TextLabel\", {\
+\9\9\9Text = editingScriptId ~= nil and \"Save changes\" or \"Save script\",\
+\9\9\9Font = \"GothamBold\",\
+\9\9\9TextSize = 15,\
+\9\9\9TextColor3 = saveLabelColor,\
+\9\9\9TextXAlignment = \"Center\",\
+\9\9\9TextYAlignment = \"Center\",\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9}),\
+\9\9Roact.createElement(\"TextButton\", {\
+\9\9\9Text = \"\",\
+\9\9\9AutoButtonColor = false,\
+\9\9\9Size = scale(1, 1),\
+\9\9\9BackgroundTransparency = 1,\
+\9\9\9[Roact.Event.Activated] = function()\
+\9\9\9\9return handleSave()\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseEnter] = function()\
+\9\9\9\9return setSaveHover(true)\
+\9\9\9end,\
+\9\9\9[Roact.Event.MouseLeave] = function()\
+\9\9\9\9return setSaveHover(false)\
+\9\9\9end,\
+\9\9}),\
+\9})\
+\9_children_1[_length_1 + 1] = Roact.createElement(Canvas, _attributes_2, _children_2)\
+\9_children_1[_length_1 + 2] = Roact.createElement(\"Frame\", {\
+\9\9Size = UDim2.new(1, -(INNER_PAD * 2), 0, 1),\
+\9\9Position = px(INNER_PAD, FORM_HEIGHT),\
+\9\9BackgroundColor3 = hairline,\
+\9\9BackgroundTransparency = theme.outlined and 0.78 or 0.88,\
+\9\9BorderSizePixel = 0,\
+\9})\
+\9_children[_length + 4] = Roact.createElement(Canvas, _attributes_1, _children_1)\
+\9local _attributes_5 = {\
+\9\9size = listTopBinding:map(function(top)\
+\9\9\9return UDim2.new(1, 0, 1, -top)\
+\9\9end),\
+\9\9position = listTopBinding:map(function(top)\
+\9\9\9return UDim2.new(0, 0, 0, top)\
+\9\9end),\
+\9\9clipsDescendants = true,\
+\9}\
+\9local _children_5 = {}\
+\9local _length_5 = #_children_5\
+\9local _attributes_6 = {\
+\9\9Size = scale(1, 1),\
+\9\9CanvasSize = scrollCanvasH:map(function(h)\
+\9\9\9return UDim2.new(0, 0, 0, h)\
+\9\9end),\
+\9\9BackgroundTransparency = 1,\
+\9\9BorderSizePixel = 0,\
+\9\9ScrollBarImageTransparency = 0.65,\
+\9\9ScrollBarThickness = 4,\
+\9\9ScrollBarImageColor3 = hairline,\
+\9\9ScrollingDirection = \"Y\",\
+\9}\
+\9local _children_6 = {}\
+\9local _length_6 = #_children_6\
+\9local _child_4 = #scripts == 0 and (Roact.createElement(\"TextLabel\", {\
+\9\9Text = \"No scripts yet\\nClick  +  to add your first script\",\
+\9\9Font = \"Gotham\",\
+\9\9TextSize = 15,\
+\9\9TextColor3 = mutedFg,\
+\9\9TextTransparency = 0.35,\
+\9\9TextXAlignment = \"Center\",\
+\9\9TextYAlignment = \"Center\",\
+\9\9AnchorPoint = Vector2.new(0.5, 0),\
+\9\9Size = UDim2.new(1, 0, 0, 64),\
+\9\9Position = UDim2.new(0.5, 0, 0, INNER_PAD),\
+\9\9BackgroundTransparency = 1,\
+\9}))\
+\9if _child_4 then\
+\9\9if _child_4.elements ~= nil or _child_4.props ~= nil and _child_4.component ~= nil then\
+\9\9\9_children_6[_length_6 + 1] = _child_4\
+\9\9else\
+\9\9\9for _k, _v in ipairs(_child_4) do\
+\9\9\9\9_children_6[_length_6 + _k] = _v\
+\9\9\9end\
+\9\9end\
+\9end\
+\9_length_6 = #_children_6\
+\9local _arg0 = function(entry, i)\
+\9\9return Roact.createFragment({\
+\9\9\9[entry.id] = Roact.createElement(ScriptRowHooked, {\
+\9\9\9\9theme = theme,\
+\9\9\9\9name = entry.name,\
+\9\9\9\9index = i,\
+\9\9\9\9isExiting = exitingScriptId == entry.id,\
+\9\9\9\9onRun = function()\
+\9\9\9\9\9return runUserScript(entry.code, entry.name)\
+\9\9\9\9end,\
+\9\9\9\9onEdit = function()\
+\9\9\9\9\9return openEditForm(entry)\
+\9\9\9\9end,\
+\9\9\9\9onDelete = function()\
+\9\9\9\9\9return scheduleDelete(entry)\
+\9\9\9\9end,\
+\9\9\9}),\
+\9\9})\
+\9end\
+\9-- ▼ ReadonlyArray.map ▼\
+\9local _newValue = table.create(#scripts)\
+\9for _k, _v in ipairs(scripts) do\
+\9\9_newValue[_k] = _arg0(_v, _k - 1, scripts)\
+\9end\
+\9-- ▲ ReadonlyArray.map ▲\
+\9for _k, _v in ipairs(_newValue) do\
+\9\9_children_6[_length_6 + _k] = _v\
+\9end\
+\9_children_5[_length_5 + 1] = Roact.createElement(\"ScrollingFrame\", _attributes_6, _children_6)\
+\9_children[_length + 5] = Roact.createElement(Canvas, _attributes_5, _children_5)\
+\9return Roact.createElement(Canvas, _attributes, _children)\
+end\
+local default = hooked(ScriptManager)\
+return {\
+\9default = default,\
+}\
+", '@'.."Orca.views.Pages.Scripts.ScriptManager")) setfenv(fn, newEnv("Orca.views.Pages.Scripts.ScriptManager")) return fn() end)
+
 newModule("Scripts", "ModuleScript", "Orca.views.Pages.Scripts.Scripts", "Orca.views.Pages.Scripts", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
 local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
@@ -10869,11 +12692,10 @@ local pure = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\"
 local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
 local http = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"http\")\
 local scale = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\").scale\
-local _constants = TS.import(script, script.Parent, \"constants\")\
-local BASE_PADDING = _constants.BASE_PADDING\
-local BASE_WINDOW_HEIGHT = _constants.BASE_WINDOW_HEIGHT\
+local BASE_PADDING = TS.import(script, script.Parent, \"constants\").BASE_PADDING\
 local Content = TS.import(script, script.Parent, \"Content\").default\
 local ScriptCard = TS.import(script, script.Parent, \"ScriptCard\").default\
+local ScriptManager = TS.import(script, script.Parent, \"ScriptManager\").default\
 local runScriptFromUrl = TS.async(function(url, src)\
 \9local _exitType, _returns = TS.try(function()\
 \9\9local content = TS.await(http.get(url))\
@@ -10896,65 +12718,6 @@ local function Scripts()\
 \9}, {\
 \9\9Roact.createElement(ScriptCard, {\
 \9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://solarishub.dev/script.lua\", \"Solaris\")\
-\9\9\9end,\
-\9\9\9index = 4,\
-\9\9\9backgroundImage = \"rbxassetid://8992292705\",\
-\9\9\9backgroundImageSize = Vector2.new(1023, 682),\
-\9\9\9dropshadow = \"rbxassetid://8992292536\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.25),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.55),\
-\9\9\9anchorPoint = Vector2.new(0, 0),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (416 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, -BASE_PADDING / 2),\
-\9\9\9position = scale(0, 0),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"Solaris\",\
-\9\9\9\9body = \"A collection\\nof your favorite\\nscripts.\",\
-\9\9\9\9footer = \"solarishub.dev\",\
-\9\9\9}),\
-\9\9}),\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://raw.githubusercontent.com/1201for/V.G-Hub/main/V.Ghub\", \"V.G Hub\")\
-\9\9\9end,\
-\9\9\9index = 1,\
-\9\9\9backgroundImage = \"rbxassetid://8992292381\",\
-\9\9\9backgroundImageSize = Vector2.new(1021, 1023),\
-\9\9\9dropshadow = \"rbxassetid://8992291993\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.25),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.55),\
-\9\9\9anchorPoint = Vector2.new(0, 1),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (416 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, -BASE_PADDING / 2),\
-\9\9\9position = scale(0, 1),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"V.G Hub\",\
-\9\9\9\9body = \"Featuring over\\n100 games.\",\
-\9\9\9\9footer = \"github.com/1201for\",\
-\9\9\9}),\
-\9\9}),\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source\", \"CMD-X\")\
-\9\9\9end,\
-\9\9\9index = 5,\
-\9\9\9backgroundImage = \"rbxassetid://8992291779\",\
-\9\9\9backgroundImageSize = Vector2.new(818, 1023),\
-\9\9\9dropshadow = \"rbxassetid://8992291581\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.4),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.6),\
-\9\9\9anchorPoint = Vector2.new(0.5, 0),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (242 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, -BASE_PADDING / 2),\
-\9\9\9position = scale(0.5, 0),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"CMD-X\",\
-\9\9\9\9footer = \"github.com/CMD-X\",\
-\9\9\9}),\
-\9\9}),\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
 \9\9\9\9return runScriptFromUrl(\"https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source\", \"Infinite Yield\")\
 \9\9\9end,\
 \9\9\9index = 3,\
@@ -10963,73 +12726,16 @@ local function Scripts()\
 \9\9\9dropshadow = \"rbxassetid://8992291268\",\
 \9\9\9dropshadowSize = Vector2.new(1.15, 1.4),\
 \9\9\9dropshadowPosition = Vector2.new(0.5, 0.6),\
-\9\9\9anchorPoint = Vector2.new(0.5, 0),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (242 + BASE_PADDING) / BASE_WINDOW_HEIGHT, -BASE_PADDING),\
-\9\9\9position = UDim2.new(0.5, 0, 1 - (590 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, BASE_PADDING / 2),\
+\9\9\9anchorPoint = Vector2.new(0, 0.5),\
+\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING, 1, -BASE_PADDING),\
+\9\9\9position = UDim2.new(0, BASE_PADDING / 2, 0.5, 0),\
 \9\9}, {\
 \9\9\9Roact.createElement(Content, {\
 \9\9\9\9header = \"Infinite Yield\",\
 \9\9\9\9footer = \"github.com/EdgeIY\",\
 \9\9\9}),\
 \9\9}),\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://pastebin.com/raw/mMbsHWiQ\", \"Dex Explorer\")\
-\9\9\9end,\
-\9\9\9index = 1,\
-\9\9\9backgroundImage = \"rbxassetid://8992290931\",\
-\9\9\9backgroundImageSize = Vector2.new(818, 1023),\
-\9\9\9dropshadow = \"rbxassetid://8992291101\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.35),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.55),\
-\9\9\9anchorPoint = Vector2.new(0.5, 1),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (300 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, -BASE_PADDING / 2),\
-\9\9\9position = scale(0.5, 1),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"Dex Explorer\",\
-\9\9\9\9footer = \"github.com/LorekeeperZinnia\",\
-\9\9\9}),\
-\9\9}),\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://raw.githubusercontent.com/ic3w0lf22/Unnamed-ESP/master/UnnamedESP.lua\", \"Unnamed ESP\")\
-\9\9\9end,\
-\9\9\9index = 6,\
-\9\9\9backgroundImage = \"rbxassetid://8992290714\",\
-\9\9\9backgroundImageSize = Vector2.new(1023, 682),\
-\9\9\9dropshadow = \"rbxassetid://8992290570\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.35),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.55),\
-\9\9\9anchorPoint = Vector2.new(1, 0),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (300 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, -BASE_PADDING / 2),\
-\9\9\9position = scale(1, 0),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"Unnamed ESP\",\
-\9\9\9\9footer = \"github.com/ic3w0lf22\",\
-\9\9\9}),\
-\9\9}),\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://projectevo.xyz/script/loader.lua\", \"EvoV2\")\
-\9\9\9end,\
-\9\9\9index = 2,\
-\9\9\9backgroundImage = \"rbxassetid://8992290314\",\
-\9\9\9backgroundImageSize = Vector2.new(682, 1023),\
-\9\9\9dropshadow = \"rbxassetid://8992290105\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.22),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.53),\
-\9\9\9anchorPoint = Vector2.new(1, 1),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING * (2 / 3), (532 + BASE_PADDING / 2) / BASE_WINDOW_HEIGHT, -BASE_PADDING / 2),\
-\9\9\9position = scale(1, 1),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"EvoV2\",\
-\9\9\9\9body = \"Reliable cheats for\\nRoblox's top shooter\\ngames, reimagined.\",\
-\9\9\9\9footer = \"projectevo.xyz\",\
-\9\9\9}),\
-\9\9}),\
+\9\9Roact.createElement(ScriptManager),\
 \9})\
 end\
 local default = pure(Scripts)\
