@@ -3,7 +3,7 @@ import { pure } from "@rbxts/roact-hooked";
 import Canvas from "components/Canvas";
 import { useScale } from "hooks/use-scale";
 import { scale } from "utils/udim2";
-import Esp from "./Esp";
+import Visuals from "./Visuals";
 import Players from "./Players";
 
 function Apps() {
@@ -13,7 +13,7 @@ function Apps() {
 		<Canvas position={scale(0, 1)} anchor={new Vector2(0, 1)}>
 			<uiscale Scale={scaleFactor} />
 			<Players />
-			<Esp />
+			<Visuals />
 		</Canvas>
 	);
 }
