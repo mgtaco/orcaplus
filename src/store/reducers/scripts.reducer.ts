@@ -65,4 +65,8 @@ export const scriptsReducer = Rodux.createReducer<ScriptsState, ScriptsAction>(i
 		...state,
 		scripts: state.scripts.filter((s) => s.id !== action.id),
 	}),
+	"scripts/update": (state, action) => ({
+		...state,
+		scripts: state.scripts.map((s) => (s.id === action.script.id ? action.script : s)),
+	}),
 });
