@@ -72,7 +72,7 @@ function ScriptCard({
 			{/* Body */}
 			<Canvas
 				anchor={new Vector2(0.5, 0.5)}
-				size={useSpring(isHovered && !isPressed ? new UDim2(1, 48, 1, 48) : scale(1, 1), {
+				size={useSpring(isHovered && !isPressed ? new UDim2(1, 24, 1, 24) : scale(1, 1), {
 					frequency: 2,
 				})}
 				position={scale(0.5, 0.5)}

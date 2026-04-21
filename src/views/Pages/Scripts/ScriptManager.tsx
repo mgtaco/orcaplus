@@ -17,14 +17,27 @@ import { addScript, removeScript, updateScript } from "store/actions/scripts.act
 import { DashboardPage } from "store/models/dashboard.model";
 import { Theme } from "themes/theme.interface";
 import { px, scale } from "utils/udim2";
+import * as http from "utils/http";
 import { SCRIPTS_FOLDER, toFilename } from "utils/script-files";
 import { BASE_PADDING } from "./constants";
+import Content from "./Content";
+import ScriptCard from "./ScriptCard";
 
-const ROW_HEIGHT = 56;
-const ROW_GAP = 8;
-const HEADER_HEIGHT = 72;
-const FORM_HEIGHT = 300;
-const INNER_PAD = 20;
+const ROW_HEIGHT = 64;
+const ROW_GAP = 10;
+const HEADER_HEIGHT = 84;
+const FORM_PAD_V = 18;
+const FORM_NAME_H = 44;
+const FORM_CODE_H = 228;
+const FORM_FIELD_GAP = 10;
+const FORM_SAVE_H = 44;
+const FORM_HEIGHT = FORM_PAD_V * 2 + FORM_NAME_H + FORM_FIELD_GAP + FORM_CODE_H + FORM_FIELD_GAP + FORM_SAVE_H;
+const INNER_PAD = 24;
+
+const ROW_ACTION_BTN = 48;
+const ROW_ACTION_GAP = 10;
+/** Space reserved on the right of the row for three action buttons + gaps + margin. */
+const ROW_NAME_RIGHT_INSET = 16 + 3 * ROW_ACTION_BTN + 2 * ROW_ACTION_GAP;
 
 const springPanel = { frequency: 2.2, dampingRatio: 0.78 };
 const springReveal = { frequency: 2.5, dampingRatio: 0.88 };
@@ -43,7 +56,28 @@ const SCRIPT_ICON_PLUS = "rbxassetid://129192126219257";
 const SCRIPT_ICON_RUN = "rbxassetid://83476009110981";
 const SCRIPT_ICON_EDIT = "rbxassetid://111130813561810";
 
-const ICON_INSET_40 = 22;
+const ICON_INSET_ROW = 28;
+const HEADER_TOGGLE = 48;
+const ROW_ENTER_Y_OFFSET = 22;
+
+/** Full-width Infinite Yield tile docked to the bottom of the panel (tap to run — no row actions). */
+const INFINITE_YIELD_HERO_H = 300;
+/** Gap between the script list viewport and the top of the Infinite Yield tile. */
+const LIST_BEFORE_IY_GAP = 20;
+/** Vertical space reserved under the scroll view: gap + tile + bottom inset. */
+const IY_BOTTOM_DOCK_H = LIST_BEFORE_IY_GAP + INFINITE_YIELD_HERO_H + INNER_PAD;
+const INFINITE_YIELD_SOURCE = "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source";
+
+async function runScriptFromUrl(url: string, src: string) {
+	try {
+		const content = await http.get(url);
+		const [fn, err] = loadstring(content, "@" + src);
+		assert(fn, `Failed to call loadstring on Lua script from '${url}': ${err}`);
+		task.defer(fn);
+	} catch (e) {
+		warn(`Failed to run Lua script from '${url}': ${e}`);
+	}
+}
 
 /** Divider / hairlines — blend fg/bg so light themes don’t get a harsh white rule (see Sorbet + Card `outlined`). */
 function subtleHairline(theme: Theme["apps"]["players"]): Color3 {
@@ -79,7 +113,7 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 	const runPingSpr = useSpring(runPing, springRunPing);
 
 	const yPos = Roact.joinBindings({ yLayout, enterT }).map(({ yLayout, enterT }) =>
-		math.round(yLayout - (1 - enterT) * 18),
+		math.round(yLayout - (1 - enterT) * ROW_ENTER_Y_OFFSET),
 	);
 	const rowFillTransparency = Roact.joinBindings({ enterT, exitT }).map(({ enterT, exitT }) =>
 		math.min(1, math.max(0, 0.25 + (1 - enterT) * 0.5 + exitT * 0.62)),
@@ -126,26 +160,31 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 			position={yPos.map((y) => new UDim2(0, INNER_PAD, 0, y))}
 		>
 			<uiscale Scale={rowScale} />
-			<Fill color={theme.button.background} transparency={rowFillTransparency} radius={10} />
-			{theme.button.outlined && <Border color={theme.button.foreground} radius={10} transparency={0.8} />}
+			<Fill color={theme.button.background} transparency={rowFillTransparency} radius={12} />
+			{theme.button.outlined && <Border color={theme.button.foreground} radius={12} transparency={0.8} />}
 
 			<textlabel
 				Text={name}
 				Font="GothamBold"
-				TextSize={16}
+				TextSize={18}
 				TextColor3={theme.foreground}
 				TextTransparency={glyphFade}
 				TextXAlignment="Left"
 				TextYAlignment="Center"
-				Position={px(14, 0)}
-				Size={new UDim2(1, -184, 1, 0)}
+				Position={px(16, 0)}
+				Size={new UDim2(1, -ROW_NAME_RIGHT_INSET, 1, 0)}
 				BackgroundTransparency={1}
 				TextTruncate="AtEnd"
 			/>
 
-			<Canvas size={px(40, 40)} position={new UDim2(1, -136, 0.5, -20)}>
-				<Fill color={editBg} radius={8} />
-				<Border color={editAccent} radius={8} transparency={useSpring(editHover ? 0.35 : 0.72, {})} />
+			<Canvas
+				size={px(ROW_ACTION_BTN, ROW_ACTION_BTN)}
+				position={
+					new UDim2(1, -ROW_ACTION_BTN - 2 * (ROW_ACTION_BTN + ROW_ACTION_GAP), 0.5, -ROW_ACTION_BTN / 2)
+				}
+			>
+				<Fill color={editBg} radius={10} />
+				<Border color={editAccent} radius={10} transparency={useSpring(editHover ? 0.35 : 0.72, {})} />
 				<imagelabel
 					Image={SCRIPT_ICON_EDIT}
 					ImageColor3={theme.foreground}
@@ -154,7 +193,7 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 					BackgroundTransparency={1}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Position={scale(0.5, 0.5)}
-					Size={px(ICON_INSET_40, ICON_INSET_40)}
+					Size={px(ICON_INSET_ROW, ICON_INSET_ROW)}
 				/>
 				<textbutton
 					Text=""
@@ -174,9 +213,12 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 				/>
 			</Canvas>
 
-			<Canvas size={px(40, 40)} position={new UDim2(1, -90, 0.5, -20)}>
-				<Fill color={runFill} radius={8} />
-				<Border color={runAccent} radius={8} transparency={useSpring(runHover ? 0.35 : 0.72, {})} />
+			<Canvas
+				size={px(ROW_ACTION_BTN, ROW_ACTION_BTN)}
+				position={new UDim2(1, -ROW_ACTION_BTN - (ROW_ACTION_BTN + ROW_ACTION_GAP), 0.5, -ROW_ACTION_BTN / 2)}
+			>
+				<Fill color={runFill} radius={10} />
+				<Border color={runAccent} radius={10} transparency={useSpring(runHover ? 0.35 : 0.72, {})} />
 				<imagelabel
 					Image={SCRIPT_ICON_RUN}
 					ImageColor3={theme.foreground}
@@ -185,7 +227,7 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 					BackgroundTransparency={1}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Position={scale(0.5, 0.5)}
-					Size={px(ICON_INSET_40, ICON_INSET_40)}
+					Size={px(ICON_INSET_ROW, ICON_INSET_ROW)}
 				/>
 				<textbutton
 					Text=""
@@ -200,9 +242,12 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 				/>
 			</Canvas>
 
-			<Canvas size={px(40, 40)} position={new UDim2(1, -44, 0.5, -20)}>
-				<Fill color={delBg} radius={8} />
-				<Border color={delAccent} radius={8} transparency={useSpring(delHover ? 0.35 : 0.72, {})} />
+			<Canvas
+				size={px(ROW_ACTION_BTN, ROW_ACTION_BTN)}
+				position={new UDim2(1, -ROW_ACTION_BTN, 0.5, -ROW_ACTION_BTN / 2)}
+			>
+				<Fill color={delBg} radius={10} />
+				<Border color={delAccent} radius={10} transparency={useSpring(delHover ? 0.35 : 0.72, {})} />
 				<imagelabel
 					Image={SCRIPT_ICON_CROSS}
 					ImageColor3={theme.foreground}
@@ -211,7 +256,7 @@ function ScriptRow({ theme, name, index, isExiting, onRun, onEdit, onDelete }: R
 					BackgroundTransparency={1}
 					AnchorPoint={new Vector2(0.5, 0.5)}
 					Position={scale(0.5, 0.5)}
-					Size={px(ICON_INSET_40, ICON_INSET_40)}
+					Size={px(ICON_INSET_ROW, ICON_INSET_ROW)}
 				/>
 				<textbutton
 					Text=""
@@ -256,7 +301,7 @@ function ScriptManager() {
 	const [nameText, setNameText] = useBinding("");
 	const [codeText, setCodeText] = useBinding("");
 
-	const finalPosition = new UDim2(1 / 3, BASE_PADDING / 2, 0.5, 0);
+	const finalPosition = new UDim2(0, BASE_PADDING / 2, 0.5, 0);
 	const animPosition = useSpring(
 		isTransitioning ? finalPosition : finalPosition.add(new UDim2(0, 0, 1, 48 * 3 + 56)),
 		springPanel,
@@ -266,7 +311,8 @@ function ScriptManager() {
 	const formBlockH = formReveal.map((t) => math.round(t * (FORM_HEIGHT + 1)));
 	const listTopBinding = formBlockH.map((h) => HEADER_HEIGHT + 1 + h);
 
-	const scrollContentH = INNER_PAD * 2 + math.max(64, scripts.size() * (ROW_HEIGHT + ROW_GAP) - ROW_GAP);
+	const userListContentH = scripts.size() === 0 ? 76 : scripts.size() * (ROW_HEIGHT + ROW_GAP) - ROW_GAP;
+	const scrollContentH = INNER_PAD + userListContentH + INNER_PAD;
 	const scrollCanvasH = useSpring(scrollContentH, springLayout);
 
 	const addAccent = theme.highlight.espEnabled;
@@ -431,7 +477,7 @@ function ScriptManager() {
 
 	return (
 		<Canvas
-			size={new UDim2(2 / 3, -BASE_PADDING, 1, -BASE_PADDING)}
+			size={new UDim2(1, -BASE_PADDING, 1, -BASE_PADDING)}
 			position={animPosition}
 			anchor={new Vector2(0, 0.5)}
 		>
@@ -439,26 +485,26 @@ function ScriptManager() {
 				color={theme.background}
 				gradient={theme.backgroundGradient}
 				transparency={theme.transparency}
-				radius={20}
+				radius={24}
 			/>
-			{theme.acrylic && <Acrylic Key="acrylic" radius={20} />}
-			{theme.outlined && <Border color={theme.foreground} radius={20} transparency={0.8} />}
+			{theme.acrylic && <Acrylic Key="acrylic" radius={24} />}
+			{theme.outlined && <Border color={theme.foreground} radius={24} transparency={0.8} />}
 
 			<textlabel
 				Text="Script Manager"
 				Font="GothamBlack"
-				TextSize={22}
+				TextSize={26}
 				TextColor3={theme.foreground}
 				TextXAlignment="Left"
 				TextYAlignment="Center"
 				Position={px(INNER_PAD, 0)}
-				Size={new UDim2(1, -(INNER_PAD + 72), 0, HEADER_HEIGHT)}
+				Size={new UDim2(1, -(INNER_PAD + HEADER_TOGGLE + 24), 0, HEADER_HEIGHT)}
 				BackgroundTransparency={1}
 			/>
 
-			<Canvas size={px(40, 40)} position={new UDim2(1, -56, 0, 16)}>
-				<Fill color={headerToggleFill} radius={10} />
-				<Border color={headerToggleStroke} radius={10} transparency={useSpring(showForm ? 0.35 : 0.45, {})} />
+			<Canvas size={px(HEADER_TOGGLE, HEADER_TOGGLE)} position={new UDim2(1, -INNER_PAD - HEADER_TOGGLE, 0, 18)}>
+				<Fill color={headerToggleFill} radius={12} />
+				<Border color={headerToggleStroke} radius={12} transparency={useSpring(showForm ? 0.35 : 0.45, {})} />
 				{showForm ? (
 					<imagelabel
 						Image={SCRIPT_ICON_CROSS}
@@ -467,7 +513,7 @@ function ScriptManager() {
 						BackgroundTransparency={1}
 						AnchorPoint={new Vector2(0.5, 0.5)}
 						Position={scale(0.5, 0.5)}
-						Size={px(ICON_INSET_40, ICON_INSET_40)}
+						Size={px(ICON_INSET_ROW, ICON_INSET_ROW)}
 					/>
 				) : (
 					<imagelabel
@@ -477,7 +523,7 @@ function ScriptManager() {
 						BackgroundTransparency={1}
 						AnchorPoint={new Vector2(0.5, 0.5)}
 						Position={scale(0.5, 0.5)}
-						Size={px(ICON_INSET_40, ICON_INSET_40)}
+						Size={px(ICON_INSET_ROW, ICON_INSET_ROW)}
 					/>
 				)}
 				<textbutton
@@ -509,31 +555,31 @@ function ScriptManager() {
 				<Canvas
 					size={new UDim2(1, 0, 0, FORM_HEIGHT)}
 					position={px(0, 0)}
-					padding={{ left: INNER_PAD, right: INNER_PAD, top: 14, bottom: 14 }}
+					padding={{ left: INNER_PAD, right: INNER_PAD, top: FORM_PAD_V, bottom: FORM_PAD_V }}
 				>
 					<frame
-						Size={new UDim2(1, 0, 0, 38)}
+						Size={new UDim2(1, 0, 0, FORM_NAME_H)}
 						Position={px(0, 0)}
 						BackgroundColor3={inputBg}
 						BackgroundTransparency={0}
 						BorderSizePixel={0}
 					>
-						<uicorner CornerRadius={new UDim(0, 8)} />
+						<uicorner CornerRadius={new UDim(0, 10)} />
 						{theme.button.outlined && (
-							<Border color={theme.button.foreground} radius={8} transparency={0.35} />
+							<Border color={theme.button.foreground} radius={10} transparency={0.35} />
 						)}
 						<textbox
 							Text={nameText}
 							PlaceholderText="Script name"
 							PlaceholderColor3={mutedFg.Lerp(theme.background, 0.35)}
 							Font="Gotham"
-							TextSize={15}
+							TextSize={17}
 							TextColor3={theme.foreground}
 							TextXAlignment="Left"
 							TextYAlignment="Center"
 							ClearTextOnFocus={false}
-							Position={px(12, 0)}
-							Size={new UDim2(1, -24, 1, 0)}
+							Position={px(14, 0)}
+							Size={new UDim2(1, -28, 1, 0)}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}
 							Change={{
@@ -545,30 +591,30 @@ function ScriptManager() {
 					</frame>
 
 					<frame
-						Size={new UDim2(1, 0, 0, 196)}
-						Position={px(0, 46)}
+						Size={new UDim2(1, 0, 0, FORM_CODE_H)}
+						Position={px(0, FORM_NAME_H + FORM_FIELD_GAP)}
 						BackgroundColor3={inputBg}
 						BackgroundTransparency={0}
 						BorderSizePixel={0}
 						ClipsDescendants={true}
 					>
-						<uicorner CornerRadius={new UDim(0, 8)} />
+						<uicorner CornerRadius={new UDim(0, 10)} />
 						{theme.button.outlined && (
-							<Border color={theme.button.foreground} radius={8} transparency={0.35} />
+							<Border color={theme.button.foreground} radius={10} transparency={0.35} />
 						)}
 						<textbox
 							Text={codeText}
 							PlaceholderText={'-- paste or write your Lua script here\nprint("Hello from Orca!")'}
 							PlaceholderColor3={mutedFg.Lerp(theme.background, 0.35)}
 							Font="Code"
-							TextSize={13}
+							TextSize={15}
 							TextColor3={theme.foreground}
 							TextXAlignment="Left"
 							TextYAlignment="Top"
 							MultiLine={true}
 							ClearTextOnFocus={false}
-							Position={px(10, 8)}
-							Size={new UDim2(1, -20, 1, -16)}
+							Position={px(12, 10)}
+							Size={new UDim2(1, -24, 1, -20)}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}
 							Change={{
@@ -579,13 +625,16 @@ function ScriptManager() {
 						/>
 					</frame>
 
-					<Canvas size={new UDim2(1, 0, 0, 38)} position={px(0, 250)}>
-						<Fill color={saveFill} radius={8} transparency={0.12} />
-						<Border color={saveAccent} radius={8} transparency={useSpring(saveHover ? 0.35 : 0.55, {})} />
+					<Canvas
+						size={new UDim2(1, 0, 0, FORM_SAVE_H)}
+						position={px(0, FORM_NAME_H + FORM_FIELD_GAP + FORM_CODE_H + FORM_FIELD_GAP)}
+					>
+						<Fill color={saveFill} radius={10} transparency={0.12} />
+						<Border color={saveAccent} radius={10} transparency={useSpring(saveHover ? 0.35 : 0.55, {})} />
 						<textlabel
 							Text={editingScriptId !== undefined ? "Save changes" : "Save script"}
 							Font="GothamBold"
-							TextSize={15}
+							TextSize={17}
 							TextColor3={saveLabelColor}
 							TextXAlignment="Center"
 							TextYAlignment="Center"
@@ -621,12 +670,13 @@ function ScriptManager() {
 				clipsDescendants
 			>
 				<scrollingframe
-					Size={scale(1, 1)}
+					Size={new UDim2(1, 0, 1, -IY_BOTTOM_DOCK_H)}
+					Position={scale(0, 0)}
 					CanvasSize={scrollCanvasH.map((h) => new UDim2(0, 0, 0, h))}
 					BackgroundTransparency={1}
 					BorderSizePixel={0}
 					ScrollBarImageTransparency={0.65}
-					ScrollBarThickness={4}
+					ScrollBarThickness={6}
 					ScrollBarImageColor3={hairline}
 					ScrollingDirection="Y"
 				>
@@ -634,13 +684,13 @@ function ScriptManager() {
 						<textlabel
 							Text={"No scripts yet\nClick  +  to add your first script"}
 							Font="Gotham"
-							TextSize={15}
+							TextSize={17}
 							TextColor3={mutedFg}
 							TextTransparency={0.35}
 							TextXAlignment="Center"
 							TextYAlignment="Center"
 							AnchorPoint={new Vector2(0.5, 0)}
-							Size={new UDim2(1, 0, 0, 64)}
+							Size={new UDim2(1, 0, 0, 76)}
 							Position={new UDim2(0.5, 0, 0, INNER_PAD)}
 							BackgroundTransparency={1}
 						/>
@@ -658,6 +708,21 @@ function ScriptManager() {
 						/>
 					))}
 				</scrollingframe>
+				<ScriptCard
+					Key="infinite-yield"
+					index={0}
+					backgroundImage="rbxassetid://8992291444"
+					backgroundImageSize={new Vector2(1023, 682)}
+					dropshadow="rbxassetid://8992291268"
+					dropshadowSize={new Vector2(1.15, 1.4)}
+					dropshadowPosition={new Vector2(0.5, 0.6)}
+					anchorPoint={new Vector2(0, 1)}
+					size={new UDim2(1, -(INNER_PAD * 2), 0, INFINITE_YIELD_HERO_H)}
+					position={new UDim2(0, INNER_PAD, 1, -INNER_PAD)}
+					onActivate={() => runScriptFromUrl(INFINITE_YIELD_SOURCE, "Infinite Yield")}
+				>
+					<Content header="Infinite Yield" footer="github.com/EdgeIY" />
+				</ScriptCard>
 			</Canvas>
 		</Canvas>
 	);
