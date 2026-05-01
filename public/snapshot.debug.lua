@@ -5,7 +5,7 @@
 --
 -- Author: 0866
 -- License: MIT
--- Version: "26d111a-dbg"
+-- Version: "26d121a-dbg"
 -- GitHub: https://github.com/richie0866/orca
 --]]
 
@@ -132,7 +132,7 @@ end
 ---@return table<string, any> environment
 local function newEnv(id)
 	return setmetatable({
-		VERSION = "26d111a-dbg",
+		VERSION = "26d121a-dbg",
 		script = instanceFromId[id],
 		require = function (module)
 			return requireModuleInternal(module, instanceFromId[id])
@@ -2504,182 +2504,6 @@ main():catch(function(err)\
 end)\
 ", '@'.."Orca.jobs.character.flight")) setfenv(fn, newEnv("Orca.jobs.character.flight")) return fn() end)
 
-newModule("ghost", "LocalScript", "Orca.jobs.character.ghost", "Orca.jobs.character", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
-local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
-local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
-local Players = _services.Players\
-local Workspace = _services.Workspace\
-local _job_store = TS.import(script, script.Parent.Parent, \"helpers\", \"job-store\")\
-local getStore = _job_store.getStore\
-local onJobChange = _job_store.onJobChange\
-local player = Players.LocalPlayer\
-local screenGuisWithResetOnSpawn = {}\
-local originalCharacter\
-local ghostCharacter\
-local lastPosition\
-local function disableResetOnSpawn()\
-\9local playerGui = player:FindFirstChildWhichIsA(\"PlayerGui\")\
-\9if playerGui then\
-\9\9for _, object in ipairs(playerGui:GetChildren()) do\
-\9\9\9if object:IsA(\"ScreenGui\") and object.ResetOnSpawn then\
-\9\9\9\9-- ▼ Array.push ▼\
-\9\9\9\9screenGuisWithResetOnSpawn[#screenGuisWithResetOnSpawn + 1] = object\
-\9\9\9\9-- ▲ Array.push ▲\
-\9\9\9\9object.ResetOnSpawn = false\
-\9\9\9end\
-\9\9end\
-\9end\
-end\
-local function enableResetOnSpawn()\
-\9for _, screenGui in ipairs(screenGuisWithResetOnSpawn) do\
-\9\9screenGui.ResetOnSpawn = true\
-\9end\
-\9-- ▼ Array.clear ▼\
-\9table.clear(screenGuisWithResetOnSpawn)\
-\9-- ▲ Array.clear ▲\
-end\
-local deactivate, activateGhost, deactivateOnCharacterAdded, deactivateGhost\
-local main = TS.async(function()\
-\9TS.await(onJobChange(\"ghost\", function(job, state)\
-\9\9if state.jobs.refresh.active and job.active then\
-\9\9\9deactivate()\
-\9\9elseif job.active then\
-\9\9\9activateGhost():andThen(deactivateOnCharacterAdded):catch(function(err)\
-\9\9\9\9warn(\"[ghost-worker-active] \" .. tostring(err))\
-\9\9\9\9deactivate()\
-\9\9\9end)\
-\9\9elseif not state.jobs.refresh.active then\
-\9\9\9deactivateGhost():catch(function(err)\
-\9\9\9\9warn(\"[ghost-worker-inactive] \" .. tostring(err))\
-\9\9\9end)\
-\9\9end\
-\9end))\
-end)\
-deactivate = TS.async(function()\
-\9local store = TS.await(getStore())\
-\9store:dispatch({\
-\9\9type = \"jobs/setJobActive\",\
-\9\9jobName = \"ghost\",\
-\9\9active = false,\
-\9})\
-end)\
-deactivateOnCharacterAdded = TS.async(function()\
-\9TS.await(TS.Promise.fromEvent(player.CharacterAdded, function(character)\
-\9\9return character ~= originalCharacter and character ~= ghostCharacter\
-\9end))\
-\9TS.await(deactivate())\
-end)\
-activateGhost = TS.async(function()\
-\9local character = player.Character\
-\9local _humanoid = character\
-\9if _humanoid ~= nil then\
-\9\9_humanoid = _humanoid:FindFirstChildWhichIsA(\"Humanoid\")\
-\9end\
-\9local humanoid = _humanoid\
-\9if not character or not humanoid then\
-\9\9error(\"Character or Humanoid is null\")\
-\9end\
-\9character.Archivable = true\
-\9ghostCharacter = character:Clone()\
-\9character.Archivable = false\
-\9local rootPart = character:FindFirstChild(\"HumanoidRootPart\")\
-\9local _result = rootPart\
-\9if _result ~= nil then\
-\9\9_result = _result:IsA(\"BasePart\")\
-\9end\
-\9lastPosition = _result and rootPart.CFrame or nil\
-\9originalCharacter = character\
-\9local ghostHumanoid = ghostCharacter:FindFirstChildWhichIsA(\"Humanoid\")\
-\9for _, child in ipairs(ghostCharacter:GetDescendants()) do\
-\9\9if child:IsA(\"BasePart\") then\
-\9\9\9child.Transparency = 1 - (1 - child.Transparency) * 0.5\
-\9\9end\
-\9end\
-\9if ghostHumanoid then\
-\9\9ghostHumanoid.DisplayName = utf8.char(128123)\
-\9end\
-\9local _result_1 = ghostCharacter:FindFirstChild(\"Animate\")\
-\9if _result_1 ~= nil then\
-\9\9_result_1:Destroy()\
-\9end\
-\9local animation = originalCharacter:FindFirstChild(\"Animate\")\
-\9if animation then\
-\9\9animation.Disabled = true\
-\9\9animation.Parent = ghostCharacter\
-\9end\
-\9disableResetOnSpawn()\
-\9ghostCharacter.Parent = character.Parent\
-\9player.Character = ghostCharacter\
-\9Workspace.CurrentCamera.CameraSubject = ghostHumanoid\
-\9enableResetOnSpawn()\
-\9if animation then\
-\9\9animation.Disabled = false\
-\9end\
-\9local handle\
-\9handle = humanoid.Died:Connect(function()\
-\9\9handle:Disconnect()\
-\9\9deactivate()\
-\9end)\
-end)\
-deactivateGhost = TS.async(function()\
-\9if not originalCharacter or not ghostCharacter then\
-\9\9return nil\
-\9end\
-\9local rootPart = originalCharacter:FindFirstChild(\"HumanoidRootPart\")\
-\9local ghostRootPart = ghostCharacter:FindFirstChild(\"HumanoidRootPart\")\
-\9local _result = ghostRootPart\
-\9if _result ~= nil then\
-\9\9_result = _result:IsA(\"BasePart\")\
-\9end\
-\9local currentPosition = _result and ghostRootPart.CFrame or nil\
-\9local animation = ghostCharacter:FindFirstChild(\"Animate\")\
-\9if animation then\
-\9\9animation.Disabled = true\
-\9\9animation.Parent = nil\
-\9end\
-\9ghostCharacter:Destroy()\
-\9local humanoid = originalCharacter:FindFirstChildWhichIsA(\"Humanoid\")\
-\9local _result_1 = humanoid\
-\9if _result_1 ~= nil then\
-\9\9local _exp = _result_1:GetPlayingAnimationTracks()\
-\9\9local _arg0 = function(track)\
-\9\9\9return track:Stop()\
-\9\9end\
-\9\9-- ▼ ReadonlyArray.forEach ▼\
-\9\9for _k, _v in ipairs(_exp) do\
-\9\9\9_arg0(_v, _k - 1, _exp)\
-\9\9end\
-\9\9-- ▲ ReadonlyArray.forEach ▲\
-\9end\
-\9local position = currentPosition or lastPosition\
-\9local _result_2 = rootPart\
-\9if _result_2 ~= nil then\
-\9\9_result_2 = _result_2:IsA(\"BasePart\")\
-\9end\
-\9local _condition = _result_2\
-\9if _condition then\
-\9\9_condition = position\
-\9end\
-\9if _condition then\
-\9\9rootPart.CFrame = position\
-\9end\
-\9disableResetOnSpawn()\
-\9player.Character = originalCharacter\
-\9Workspace.CurrentCamera.CameraSubject = humanoid\
-\9enableResetOnSpawn()\
-\9if animation then\
-\9\9animation.Parent = originalCharacter\
-\9\9animation.Disabled = false\
-\9end\
-\9originalCharacter = nil\
-\9ghostCharacter = nil\
-\9lastPosition = nil\
-end)\
-main():catch(function(err)\
-\9warn(\"[ghost-worker] \" .. tostring(err))\
-end)\
-", '@'.."Orca.jobs.character.ghost")) setfenv(fn, newEnv("Orca.jobs.character.ghost")) return fn() end)
-
 newModule("godmode", "LocalScript", "Orca.jobs.character.godmode", "Orca.jobs.character", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
 local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
@@ -2696,10 +2520,8 @@ local main = TS.async(function()\
 \9\9warn(\"[godmode-worker] \" .. tostring(err))\
 \9\9deactivate()\
 \9end\
-\9TS.await(onJobChange(\"godmode\", function(job, state)\
-\9\9if state.jobs.ghost.active and job.active then\
-\9\9\9deactivate()\
-\9\9elseif job.active then\
+\9TS.await(onJobChange(\"godmode\", function(job)\
+\9\9if job.active then\
 \9\9\9activateGodmode():andThen(deactivateOnCharacterAdded):catch(errorHandler)\
 \9\9end\
 \9end))\
@@ -2713,10 +2535,8 @@ deactivate = TS.async(function()\
 \9})\
 end)\
 deactivateOnCharacterAdded = TS.async(function()\
-\9local store = TS.await(getStore())\
 \9TS.await(TS.Promise.fromEvent(player.CharacterAdded, function(character)\
-\9\9local jobs = store:getState().jobs\
-\9\9return not jobs.ghost.active and character ~= currentCharacter\
+\9\9return character ~= currentCharacter\
 \9end))\
 \9TS.await(deactivate())\
 end)\
@@ -2853,6 +2673,84 @@ main():catch(function(err)\
 end)\
 ", '@'.."Orca.jobs.character.humanoid")) setfenv(fn, newEnv("Orca.jobs.character.humanoid")) return fn() end)
 
+newModule("noclip", "LocalScript", "Orca.jobs.character.noclip", "Orca.jobs.character", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
+local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
+local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
+local Players = _services.Players\
+local RunService = _services.RunService\
+local onJobChange = TS.import(script, script.Parent.Parent, \"helpers\", \"job-store\").onJobChange\
+local player = Players.LocalPlayer\
+local originalCollisions = {}\
+local enabled = false\
+local snapshotCollisions, restoreCollisions\
+local main = TS.async(function()\
+\9TS.await(onJobChange(\"noclip\", function(job)\
+\9\9enabled = job.active\
+\9\9if enabled then\
+\9\9\9snapshotCollisions()\
+\9\9else\
+\9\9\9restoreCollisions()\
+\9\9end\
+\9end))\
+\9local disableCollisions = function()\
+\9\9if not enabled then\
+\9\9\9return nil\
+\9\9end\
+\9\9local character = player.Character\
+\9\9if not character then\
+\9\9\9return nil\
+\9\9end\
+\9\9for _, descendant in ipairs(character:GetDescendants()) do\
+\9\9\9if descendant:IsA(\"BasePart\") and descendant.CanCollide then\
+\9\9\9\9if not (originalCollisions[descendant] ~= nil) then\
+\9\9\9\9\9-- ▼ Map.set ▼\
+\9\9\9\9\9originalCollisions[descendant] = true\
+\9\9\9\9\9-- ▲ Map.set ▲\
+\9\9\9\9end\
+\9\9\9\9descendant.CanCollide = false\
+\9\9\9end\
+\9\9end\
+\9end\
+\9RunService.Stepped:Connect(disableCollisions)\
+\9RunService.Heartbeat:Connect(disableCollisions)\
+\9player.CharacterAdded:Connect(function()\
+\9\9-- ▼ Map.clear ▼\
+\9\9table.clear(originalCollisions)\
+\9\9-- ▲ Map.clear ▲\
+\9end)\
+end)\
+function snapshotCollisions()\
+\9-- ▼ Map.clear ▼\
+\9table.clear(originalCollisions)\
+\9-- ▲ Map.clear ▲\
+\9local character = player.Character\
+\9if not character then\
+\9\9return nil\
+\9end\
+\9for _, descendant in ipairs(character:GetDescendants()) do\
+\9\9if descendant:IsA(\"BasePart\") then\
+\9\9\9local _canCollide = descendant.CanCollide\
+\9\9\9-- ▼ Map.set ▼\
+\9\9\9originalCollisions[descendant] = _canCollide\
+\9\9\9-- ▲ Map.set ▲\
+\9\9end\
+\9end\
+end\
+function restoreCollisions()\
+\9for part, canCollide in pairs(originalCollisions) do\
+\9\9if part.Parent ~= nil then\
+\9\9\9part.CanCollide = canCollide\
+\9\9end\
+\9end\
+\9-- ▼ Map.clear ▼\
+\9table.clear(originalCollisions)\
+\9-- ▲ Map.clear ▲\
+end\
+main():catch(function(err)\
+\9warn(\"[noclip-worker] \" .. tostring(err))\
+end)\
+", '@'.."Orca.jobs.character.noclip")) setfenv(fn, newEnv("Orca.jobs.character.noclip")) return fn() end)
+
 newModule("refresh", "LocalScript", "Orca.jobs.character.refresh", "Orca.jobs.character", function () local fn = assert(loadstring("-- Compiled with roblox-ts v1.2.7\
 local TS = require(script.Parent.Parent.Parent.include.RuntimeLib)\
 local _services = TS.import(script, TS.getModule(script, \"@rbxts\", \"services\"))\
@@ -2873,10 +2771,8 @@ local main = TS.async(function()\
 \9\9\9active = false,\
 \9\9})\
 \9end\
-\9TS.await(onJobChange(\"refresh\", function(job, state)\
-\9\9if state.jobs.ghost.active and job.active then\
-\9\9\9deactivate()\
-\9\9elseif job.active then\
+\9TS.await(onJobChange(\"refresh\", function(job)\
+\9\9if job.active then\
 \9\9\9respawn():catch(function(err)\
 \9\9\9\9return warn(\"[refresh-worker-respawn] \" .. tostring(err))\
 \9\9\9end):finally(function()\
@@ -4740,7 +4636,7 @@ local initialState = {\
 \9refresh = {\
 \9\9active = false,\
 \9},\
-\9ghost = {\
+\9noclip = {\
 \9\9active = false,\
 \9},\
 \9godmode = {\
@@ -5189,7 +5085,7 @@ local darkTheme = {\
 \9\9\9\9walkSpeed = hex(\"#EC423D\"),\
 \9\9\9\9jumpHeight = hex(\"#37CC95\"),\
 \9\9\9\9refresh = hex(\"#a22df0\"),\
-\9\9\9\9ghost = hex(\"#FF4040\"),\
+\9\9\9\9noclip = hex(\"#37CCB8\"),\
 \9\9\9\9godmode = hex(\"#f09c2d\"),\
 \9\9\9\9freecam = hex(\"#37CC95\"),\
 \9\9\9},\
@@ -5454,7 +5350,7 @@ _object_4.highlight = {\
 \9walkSpeed = accent,\
 \9jumpHeight = accent,\
 \9refresh = accent,\
-\9ghost = accent,\
+\9noclip = accent,\
 \9godmode = accent,\
 \9freecam = accent,\
 }\
@@ -6216,7 +6112,7 @@ _object_5.highlight = {\
 \9walkSpeed = accent,\
 \9jumpHeight = accent,\
 \9refresh = accent,\
-\9ghost = accent,\
+\9noclip = accent,\
 \9godmode = accent,\
 \9freecam = accent,\
 }\
@@ -6545,7 +6441,7 @@ _object_5.highlight = {\
 \9walkSpeed = mixedAccent,\
 \9jumpHeight = blueAccent,\
 \9refresh = redAccent,\
-\9ghost = blueAccent,\
+\9noclip = blueAccent,\
 \9godmode = redAccent,\
 \9freecam = blueAccent,\
 }\
@@ -9451,8 +9347,8 @@ local function Actions()\
 \9\9\9position = px(0, 0),\
 \9\9}),\
 \9\9Roact.createElement(ActionButton, {\
-\9\9\9action = \"ghost\",\
-\9\9\9hint = \"<font face='GothamBlack'>Spawn a ghost</font> and go to it when disabled\",\
+\9\9\9action = \"noclip\",\
+\9\9\9hint = \"<font face='GothamBlack'>Toggle noclip</font> to walk through walls\",\
 \9\9\9theme = theme,\
 \9\9\9image = \"rbxassetid://8992253792\",\
 \9\9\9position = px(72, 0),\
@@ -10833,7 +10729,7 @@ local _ShortcutItem = TS.import(script, script.Parent, \"ShortcutItem\")\
 local ShortcutItem = _ShortcutItem.default\
 local ENTRY_HEIGHT = _ShortcutItem.ENTRY_HEIGHT\
 local PADDING = _ShortcutItem.PADDING\
-local ENTRY_COUNT = 7\
+local ENTRY_COUNT = 6\
 local function Shortcuts()\
 \9local store = useAppStore()\
 \9local dispatch = useAppDispatch()\
@@ -10909,23 +10805,13 @@ local function Shortcuts()\
 \9\9\9\9}),\
 \9\9\9\9Roact.createElement(ShortcutItem, {\
 \9\9\9\9\9onActivate = function()\
-\9\9\9\9\9\9dispatch(setJobActive(\"ghost\", not store:getState().jobs.ghost.active))\
-\9\9\9\9\9end,\
-\9\9\9\9\9onSelect = setSelectedItem,\
-\9\9\9\9\9selectedItem = selectedItem,\
-\9\9\9\9\9action = \"setGhost\",\
-\9\9\9\9\9description = \"Set ghost mode\",\
-\9\9\9\9\9index = 3,\
-\9\9\9\9}),\
-\9\9\9\9Roact.createElement(ShortcutItem, {\
-\9\9\9\9\9onActivate = function()\
 \9\9\9\9\9\9dispatch(setJobActive(\"walkSpeed\", not store:getState().jobs.walkSpeed.active))\
 \9\9\9\9\9end,\
 \9\9\9\9\9onSelect = setSelectedItem,\
 \9\9\9\9\9selectedItem = selectedItem,\
 \9\9\9\9\9action = \"setSpeed\",\
 \9\9\9\9\9description = \"Set walk speed\",\
-\9\9\9\9\9index = 4,\
+\9\9\9\9\9index = 3,\
 \9\9\9\9}),\
 \9\9\9\9Roact.createElement(ShortcutItem, {\
 \9\9\9\9\9onActivate = function()\
@@ -10935,7 +10821,7 @@ local function Shortcuts()\
 \9\9\9\9\9selectedItem = selectedItem,\
 \9\9\9\9\9action = \"setJumpHeight\",\
 \9\9\9\9\9description = \"Set jump height\",\
-\9\9\9\9\9index = 5,\
+\9\9\9\9\9index = 4,\
 \9\9\9\9}),\
 \9\9\9\9Roact.createElement(ShortcutItem, {\
 \9\9\9\9\9onActivate = function()\
@@ -10945,7 +10831,7 @@ local function Shortcuts()\
 \9\9\9\9\9selectedItem = selectedItem,\
 \9\9\9\9\9action = \"toggleEsp\",\
 \9\9\9\9\9description = \"Toggle ESP\",\
-\9\9\9\9\9index = 6,\
+\9\9\9\9\9index = 5,\
 \9\9\9\9}),\
 \9\9\9}),\
 \9\9}),\
@@ -11565,7 +11451,7 @@ local function ScriptCard(_param)\
 \9local _length = #_children\
 \9local _attributes_1 = {\
 \9\9anchor = Vector2.new(0.5, 0.5),\
-\9\9size = useSpring(isHovered and not isPressed and UDim2.new(1, 48, 1, 48) or scale(1, 1), {\
+\9\9size = useSpring(isHovered and not isPressed and UDim2.new(1, 24, 1, 24) or scale(1, 1), {\
 \9\9\9frequency = 2,\
 \9\9}),\
 \9\9position = scale(0.5, 0.5),\
@@ -11704,15 +11590,26 @@ local DashboardPage = TS.import(script, script.Parent.Parent.Parent.Parent, \"st
 local _udim2 = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\")\
 local px = _udim2.px\
 local scale = _udim2.scale\
+local http = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"http\")\
 local _script_files = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"script-files\")\
 local SCRIPTS_FOLDER = _script_files.SCRIPTS_FOLDER\
 local toFilename = _script_files.toFilename\
 local BASE_PADDING = TS.import(script, script.Parent, \"constants\").BASE_PADDING\
-local ROW_HEIGHT = 56\
-local ROW_GAP = 8\
-local HEADER_HEIGHT = 72\
-local FORM_HEIGHT = 300\
-local INNER_PAD = 20\
+local Content = TS.import(script, script.Parent, \"Content\").default\
+local ScriptCard = TS.import(script, script.Parent, \"ScriptCard\").default\
+local ROW_HEIGHT = 64\
+local ROW_GAP = 10\
+local HEADER_HEIGHT = 84\
+local FORM_PAD_V = 18\
+local FORM_NAME_H = 44\
+local FORM_CODE_H = 228\
+local FORM_FIELD_GAP = 10\
+local FORM_SAVE_H = 44\
+local FORM_HEIGHT = FORM_PAD_V * 2 + FORM_NAME_H + FORM_FIELD_GAP + FORM_CODE_H + FORM_FIELD_GAP + FORM_SAVE_H\
+local INNER_PAD = 24\
+local ROW_ACTION_BTN = 48\
+local ROW_ACTION_GAP = 10\
+local ROW_NAME_RIGHT_INSET = 16 + 3 * ROW_ACTION_BTN + 2 * ROW_ACTION_GAP\
 local springPanel = {\
 \9frequency = 2.2,\
 \9dampingRatio = 0.78,\
@@ -11745,7 +11642,24 @@ local SCRIPT_ICON_CROSS = \"rbxassetid://100953464106901\"\
 local SCRIPT_ICON_PLUS = \"rbxassetid://129192126219257\"\
 local SCRIPT_ICON_RUN = \"rbxassetid://83476009110981\"\
 local SCRIPT_ICON_EDIT = \"rbxassetid://111130813561810\"\
-local ICON_INSET_40 = 22\
+local ICON_INSET_ROW = 28\
+local HEADER_TOGGLE = 48\
+local ROW_ENTER_Y_OFFSET = 22\
+local INFINITE_YIELD_HERO_H = 300\
+local LIST_BEFORE_IY_GAP = 20\
+local IY_BOTTOM_DOCK_H = LIST_BEFORE_IY_GAP + INFINITE_YIELD_HERO_H + INNER_PAD\
+local INFINITE_YIELD_SOURCE = \"https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source\"\
+local runScriptFromUrl = TS.async(function(url, src)\
+\9TS.try(function()\
+\9\9local content = TS.await(http.get(url))\
+\9\9local fn, err = loadstring(content, \"@\" .. src)\
+\9\9local _arg1 = \"Failed to call loadstring on Lua script from '\" .. (url .. (\"': \" .. tostring(err)))\
+\9\9assert(fn, _arg1)\
+\9\9task.defer(fn)\
+\9end, function(e)\
+\9\9warn(\"Failed to run Lua script from '\" .. (url .. (\"': \" .. tostring(e))))\
+\9end)\
+end)\
 local function subtleHairline(theme)\
 \9return theme.foreground:Lerp(theme.background, 0.58)\
 end\
@@ -11788,7 +11702,7 @@ local function ScriptRow(_param)\
 \9}):map(function(_param_1)\
 \9\9local yLayout = _param_1.yLayout\
 \9\9local enterT = _param_1.enterT\
-\9\9return math.round(yLayout - (1 - enterT) * 18)\
+\9\9return math.round(yLayout - (1 - enterT) * ROW_ENTER_Y_OFFSET)\
 \9end)\
 \9local rowFillTransparency = Roact.joinBindings({\
 \9\9enterT = enterT,\
@@ -11873,13 +11787,13 @@ local function ScriptRow(_param)\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = theme.button.background,\
 \9\9\9transparency = rowFillTransparency,\
-\9\9\9radius = 10,\
+\9\9\9radius = 12,\
 \9\9}),\
 \9}\
 \9local _length = #_children\
 \9local _child = theme.button.outlined and Roact.createElement(Border, {\
 \9\9color = theme.button.foreground,\
-\9\9radius = 10,\
+\9\9radius = 12,\
 \9\9transparency = 0.8,\
 \9})\
 \9if _child then\
@@ -11895,27 +11809,27 @@ local function ScriptRow(_param)\
 \9_children[_length + 1] = Roact.createElement(\"TextLabel\", {\
 \9\9Text = name,\
 \9\9Font = \"GothamBold\",\
-\9\9TextSize = 16,\
+\9\9TextSize = 18,\
 \9\9TextColor3 = theme.foreground,\
 \9\9TextTransparency = glyphFade,\
 \9\9TextXAlignment = \"Left\",\
 \9\9TextYAlignment = \"Center\",\
-\9\9Position = px(14, 0),\
-\9\9Size = UDim2.new(1, -184, 1, 0),\
+\9\9Position = px(16, 0),\
+\9\9Size = UDim2.new(1, -ROW_NAME_RIGHT_INSET, 1, 0),\
 \9\9BackgroundTransparency = 1,\
 \9\9TextTruncate = \"AtEnd\",\
 \9})\
 \9_children[_length + 2] = Roact.createElement(Canvas, {\
-\9\9size = px(40, 40),\
-\9\9position = UDim2.new(1, -136, 0.5, -20),\
+\9\9size = px(ROW_ACTION_BTN, ROW_ACTION_BTN),\
+\9\9position = UDim2.new(1, -ROW_ACTION_BTN - 2 * (ROW_ACTION_BTN + ROW_ACTION_GAP), 0.5, -ROW_ACTION_BTN / 2),\
 \9}, {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = editBg,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9}),\
 \9\9Roact.createElement(Border, {\
 \9\9\9color = editAccent,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9\9transparency = useSpring(editHover and 0.35 or 0.72, {}),\
 \9\9}),\
 \9\9Roact.createElement(\"ImageLabel\", {\
@@ -11926,7 +11840,7 @@ local function ScriptRow(_param)\
 \9\9\9BackgroundTransparency = 1,\
 \9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
 \9\9\9Position = scale(0.5, 0.5),\
-\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9\9Size = px(ICON_INSET_ROW, ICON_INSET_ROW),\
 \9\9}),\
 \9\9Roact.createElement(\"TextButton\", {\
 \9\9\9Text = \"\",\
@@ -11950,16 +11864,16 @@ local function ScriptRow(_param)\
 \9\9}),\
 \9})\
 \9_children[_length + 3] = Roact.createElement(Canvas, {\
-\9\9size = px(40, 40),\
-\9\9position = UDim2.new(1, -90, 0.5, -20),\
+\9\9size = px(ROW_ACTION_BTN, ROW_ACTION_BTN),\
+\9\9position = UDim2.new(1, -ROW_ACTION_BTN - (ROW_ACTION_BTN + ROW_ACTION_GAP), 0.5, -ROW_ACTION_BTN / 2),\
 \9}, {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = runFill,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9}),\
 \9\9Roact.createElement(Border, {\
 \9\9\9color = runAccent,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9\9transparency = useSpring(runHover and 0.35 or 0.72, {}),\
 \9\9}),\
 \9\9Roact.createElement(\"ImageLabel\", {\
@@ -11970,7 +11884,7 @@ local function ScriptRow(_param)\
 \9\9\9BackgroundTransparency = 1,\
 \9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
 \9\9\9Position = scale(0.5, 0.5),\
-\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9\9Size = px(ICON_INSET_ROW, ICON_INSET_ROW),\
 \9\9}),\
 \9\9Roact.createElement(\"TextButton\", {\
 \9\9\9Text = \"\",\
@@ -11989,16 +11903,16 @@ local function ScriptRow(_param)\
 \9\9}),\
 \9})\
 \9_children[_length + 4] = Roact.createElement(Canvas, {\
-\9\9size = px(40, 40),\
-\9\9position = UDim2.new(1, -44, 0.5, -20),\
+\9\9size = px(ROW_ACTION_BTN, ROW_ACTION_BTN),\
+\9\9position = UDim2.new(1, -ROW_ACTION_BTN, 0.5, -ROW_ACTION_BTN / 2),\
 \9}, {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = delBg,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9}),\
 \9\9Roact.createElement(Border, {\
 \9\9\9color = delAccent,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9\9transparency = useSpring(delHover and 0.35 or 0.72, {}),\
 \9\9}),\
 \9\9Roact.createElement(\"ImageLabel\", {\
@@ -12009,7 +11923,7 @@ local function ScriptRow(_param)\
 \9\9\9BackgroundTransparency = 1,\
 \9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
 \9\9\9Position = scale(0.5, 0.5),\
-\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9\9Size = px(ICON_INSET_ROW, ICON_INSET_ROW),\
 \9\9}),\
 \9\9Roact.createElement(\"TextButton\", {\
 \9\9\9Text = \"\",\
@@ -12075,7 +11989,7 @@ local function ScriptManager()\
 \9local _binding_6 = useBinding(\"\")\
 \9local codeText = _binding_6[1]\
 \9local setCodeText = _binding_6[2]\
-\9local finalPosition = UDim2.new(1 / 3, BASE_PADDING / 2, 0.5, 0)\
+\9local finalPosition = UDim2.new(0, BASE_PADDING / 2, 0.5, 0)\
 \9local _result_1\
 \9if isTransitioning then\
 \9\9_result_1 = finalPosition\
@@ -12091,7 +12005,8 @@ local function ScriptManager()\
 \9local listTopBinding = formBlockH:map(function(h)\
 \9\9return HEADER_HEIGHT + 1 + h\
 \9end)\
-\9local scrollContentH = INNER_PAD * 2 + math.max(64, #scripts * (ROW_HEIGHT + ROW_GAP) - ROW_GAP)\
+\9local userListContentH = #scripts == 0 and 76 or #scripts * (ROW_HEIGHT + ROW_GAP) - ROW_GAP\
+\9local scrollContentH = INNER_PAD + userListContentH + INNER_PAD\
 \9local scrollCanvasH = useSpring(scrollContentH, springLayout)\
 \9local addAccent = theme.highlight.espEnabled\
 \9local closeAccent = theme.highlight.kill\
@@ -12320,7 +12235,7 @@ local function ScriptManager()\
 \9end\
 \9local saveLabelColor = useSpring(_result_4, {})\
 \9local _attributes = {\
-\9\9size = UDim2.new(2 / 3, -BASE_PADDING, 1, -BASE_PADDING),\
+\9\9size = UDim2.new(1, -BASE_PADDING, 1, -BASE_PADDING),\
 \9\9position = animPosition,\
 \9\9anchor = Vector2.new(0, 0.5),\
 \9}\
@@ -12329,13 +12244,13 @@ local function ScriptManager()\
 \9\9\9color = theme.background,\
 \9\9\9gradient = theme.backgroundGradient,\
 \9\9\9transparency = theme.transparency,\
-\9\9\9radius = 20,\
+\9\9\9radius = 24,\
 \9\9}),\
 \9}\
 \9local _length = #_children\
 \9local _child = theme.acrylic and Roact.createFragment({\
 \9\9acrylic = Roact.createElement(Acrylic, {\
-\9\9\9radius = 20,\
+\9\9\9radius = 24,\
 \9\9}),\
 \9})\
 \9if _child then\
@@ -12350,7 +12265,7 @@ local function ScriptManager()\
 \9_length = #_children\
 \9local _child_1 = theme.outlined and Roact.createElement(Border, {\
 \9\9color = theme.foreground,\
-\9\9radius = 20,\
+\9\9radius = 24,\
 \9\9transparency = 0.8,\
 \9})\
 \9if _child_1 then\
@@ -12366,25 +12281,25 @@ local function ScriptManager()\
 \9_children[_length + 1] = Roact.createElement(\"TextLabel\", {\
 \9\9Text = \"Script Manager\",\
 \9\9Font = \"GothamBlack\",\
-\9\9TextSize = 22,\
+\9\9TextSize = 26,\
 \9\9TextColor3 = theme.foreground,\
 \9\9TextXAlignment = \"Left\",\
 \9\9TextYAlignment = \"Center\",\
 \9\9Position = px(INNER_PAD, 0),\
-\9\9Size = UDim2.new(1, -(INNER_PAD + 72), 0, HEADER_HEIGHT),\
+\9\9Size = UDim2.new(1, -(INNER_PAD + HEADER_TOGGLE + 24), 0, HEADER_HEIGHT),\
 \9\9BackgroundTransparency = 1,\
 \9})\
 \9_children[_length + 2] = Roact.createElement(Canvas, {\
-\9\9size = px(40, 40),\
-\9\9position = UDim2.new(1, -56, 0, 16),\
+\9\9size = px(HEADER_TOGGLE, HEADER_TOGGLE),\
+\9\9position = UDim2.new(1, -INNER_PAD - HEADER_TOGGLE, 0, 18),\
 \9}, {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = headerToggleFill,\
-\9\9\9radius = 10,\
+\9\9\9radius = 12,\
 \9\9}),\
 \9\9Roact.createElement(Border, {\
 \9\9\9color = headerToggleStroke,\
-\9\9\9radius = 10,\
+\9\9\9radius = 12,\
 \9\9\9transparency = useSpring(showForm and 0.35 or 0.45, {}),\
 \9\9}),\
 \9\9showForm and (Roact.createElement(\"ImageLabel\", {\
@@ -12394,7 +12309,7 @@ local function ScriptManager()\
 \9\9\9BackgroundTransparency = 1,\
 \9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
 \9\9\9Position = scale(0.5, 0.5),\
-\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9\9Size = px(ICON_INSET_ROW, ICON_INSET_ROW),\
 \9\9})) or (Roact.createElement(\"ImageLabel\", {\
 \9\9\9Image = SCRIPT_ICON_PLUS,\
 \9\9\9ImageColor3 = theme.foreground,\
@@ -12402,7 +12317,7 @@ local function ScriptManager()\
 \9\9\9BackgroundTransparency = 1,\
 \9\9\9AnchorPoint = Vector2.new(0.5, 0.5),\
 \9\9\9Position = scale(0.5, 0.5),\
-\9\9\9Size = px(ICON_INSET_40, ICON_INSET_40),\
+\9\9\9Size = px(ICON_INSET_ROW, ICON_INSET_ROW),\
 \9\9})),\
 \9\9Roact.createElement(\"TextButton\", {\
 \9\9\9Text = \"\",\
@@ -12448,14 +12363,14 @@ local function ScriptManager()\
 \9\9padding = {\
 \9\9\9left = INNER_PAD,\
 \9\9\9right = INNER_PAD,\
-\9\9\9top = 14,\
-\9\9\9bottom = 14,\
+\9\9\9top = FORM_PAD_V,\
+\9\9\9bottom = FORM_PAD_V,\
 \9\9},\
 \9}\
 \9local _children_2 = {}\
 \9local _length_2 = #_children_2\
 \9local _attributes_3 = {\
-\9\9Size = UDim2.new(1, 0, 0, 38),\
+\9\9Size = UDim2.new(1, 0, 0, FORM_NAME_H),\
 \9\9Position = px(0, 0),\
 \9\9BackgroundColor3 = inputBg,\
 \9\9BackgroundTransparency = 0,\
@@ -12463,13 +12378,13 @@ local function ScriptManager()\
 \9}\
 \9local _children_3 = {\
 \9\9Roact.createElement(\"UICorner\", {\
-\9\9\9CornerRadius = UDim.new(0, 8),\
+\9\9\9CornerRadius = UDim.new(0, 10),\
 \9\9}),\
 \9}\
 \9local _length_3 = #_children_3\
 \9local _child_2 = theme.button.outlined and (Roact.createElement(Border, {\
 \9\9color = theme.button.foreground,\
-\9\9radius = 8,\
+\9\9radius = 10,\
 \9\9transparency = 0.35,\
 \9}))\
 \9if _child_2 then\
@@ -12487,13 +12402,13 @@ local function ScriptManager()\
 \9\9PlaceholderText = \"Script name\",\
 \9\9PlaceholderColor3 = mutedFg:Lerp(theme.background, 0.35),\
 \9\9Font = \"Gotham\",\
-\9\9TextSize = 15,\
+\9\9TextSize = 17,\
 \9\9TextColor3 = theme.foreground,\
 \9\9TextXAlignment = \"Left\",\
 \9\9TextYAlignment = \"Center\",\
 \9\9ClearTextOnFocus = false,\
-\9\9Position = px(12, 0),\
-\9\9Size = UDim2.new(1, -24, 1, 0),\
+\9\9Position = px(14, 0),\
+\9\9Size = UDim2.new(1, -28, 1, 0),\
 \9\9BackgroundTransparency = 1,\
 \9\9BorderSizePixel = 0,\
 \9\9[Roact.Change.Text] = function(rbx)\
@@ -12502,8 +12417,8 @@ local function ScriptManager()\
 \9})\
 \9_children_2[_length_2 + 1] = Roact.createElement(\"Frame\", _attributes_3, _children_3)\
 \9local _attributes_4 = {\
-\9\9Size = UDim2.new(1, 0, 0, 196),\
-\9\9Position = px(0, 46),\
+\9\9Size = UDim2.new(1, 0, 0, FORM_CODE_H),\
+\9\9Position = px(0, FORM_NAME_H + FORM_FIELD_GAP),\
 \9\9BackgroundColor3 = inputBg,\
 \9\9BackgroundTransparency = 0,\
 \9\9BorderSizePixel = 0,\
@@ -12511,13 +12426,13 @@ local function ScriptManager()\
 \9}\
 \9local _children_4 = {\
 \9\9Roact.createElement(\"UICorner\", {\
-\9\9\9CornerRadius = UDim.new(0, 8),\
+\9\9\9CornerRadius = UDim.new(0, 10),\
 \9\9}),\
 \9}\
 \9local _length_4 = #_children_4\
 \9local _child_3 = theme.button.outlined and (Roact.createElement(Border, {\
 \9\9color = theme.button.foreground,\
-\9\9radius = 8,\
+\9\9radius = 10,\
 \9\9transparency = 0.35,\
 \9}))\
 \9if _child_3 then\
@@ -12535,14 +12450,14 @@ local function ScriptManager()\
 \9\9PlaceholderText = '-- paste or write your Lua script here\\nprint(\"Hello from Orca!\")',\
 \9\9PlaceholderColor3 = mutedFg:Lerp(theme.background, 0.35),\
 \9\9Font = \"Code\",\
-\9\9TextSize = 13,\
+\9\9TextSize = 15,\
 \9\9TextColor3 = theme.foreground,\
 \9\9TextXAlignment = \"Left\",\
 \9\9TextYAlignment = \"Top\",\
 \9\9MultiLine = true,\
 \9\9ClearTextOnFocus = false,\
-\9\9Position = px(10, 8),\
-\9\9Size = UDim2.new(1, -20, 1, -16),\
+\9\9Position = px(12, 10),\
+\9\9Size = UDim2.new(1, -24, 1, -20),\
 \9\9BackgroundTransparency = 1,\
 \9\9BorderSizePixel = 0,\
 \9\9[Roact.Change.Text] = function(rbx)\
@@ -12551,23 +12466,23 @@ local function ScriptManager()\
 \9})\
 \9_children_2[_length_2 + 2] = Roact.createElement(\"Frame\", _attributes_4, _children_4)\
 \9_children_2[_length_2 + 3] = Roact.createElement(Canvas, {\
-\9\9size = UDim2.new(1, 0, 0, 38),\
-\9\9position = px(0, 250),\
+\9\9size = UDim2.new(1, 0, 0, FORM_SAVE_H),\
+\9\9position = px(0, FORM_NAME_H + FORM_FIELD_GAP + FORM_CODE_H + FORM_FIELD_GAP),\
 \9}, {\
 \9\9Roact.createElement(Fill, {\
 \9\9\9color = saveFill,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9\9transparency = 0.12,\
 \9\9}),\
 \9\9Roact.createElement(Border, {\
 \9\9\9color = saveAccent,\
-\9\9\9radius = 8,\
+\9\9\9radius = 10,\
 \9\9\9transparency = useSpring(saveHover and 0.35 or 0.55, {}),\
 \9\9}),\
 \9\9Roact.createElement(\"TextLabel\", {\
 \9\9\9Text = editingScriptId ~= nil and \"Save changes\" or \"Save script\",\
 \9\9\9Font = \"GothamBold\",\
-\9\9\9TextSize = 15,\
+\9\9\9TextSize = 17,\
 \9\9\9TextColor3 = saveLabelColor,\
 \9\9\9TextXAlignment = \"Center\",\
 \9\9\9TextYAlignment = \"Center\",\
@@ -12611,14 +12526,15 @@ local function ScriptManager()\
 \9local _children_5 = {}\
 \9local _length_5 = #_children_5\
 \9local _attributes_6 = {\
-\9\9Size = scale(1, 1),\
+\9\9Size = UDim2.new(1, 0, 1, -IY_BOTTOM_DOCK_H),\
+\9\9Position = scale(0, 0),\
 \9\9CanvasSize = scrollCanvasH:map(function(h)\
 \9\9\9return UDim2.new(0, 0, 0, h)\
 \9\9end),\
 \9\9BackgroundTransparency = 1,\
 \9\9BorderSizePixel = 0,\
 \9\9ScrollBarImageTransparency = 0.65,\
-\9\9ScrollBarThickness = 4,\
+\9\9ScrollBarThickness = 6,\
 \9\9ScrollBarImageColor3 = hairline,\
 \9\9ScrollingDirection = \"Y\",\
 \9}\
@@ -12627,13 +12543,13 @@ local function ScriptManager()\
 \9local _child_4 = #scripts == 0 and (Roact.createElement(\"TextLabel\", {\
 \9\9Text = \"No scripts yet\\nClick  +  to add your first script\",\
 \9\9Font = \"Gotham\",\
-\9\9TextSize = 15,\
+\9\9TextSize = 17,\
 \9\9TextColor3 = mutedFg,\
 \9\9TextTransparency = 0.35,\
 \9\9TextXAlignment = \"Center\",\
 \9\9TextYAlignment = \"Center\",\
 \9\9AnchorPoint = Vector2.new(0.5, 0),\
-\9\9Size = UDim2.new(1, 0, 0, 64),\
+\9\9Size = UDim2.new(1, 0, 0, 76),\
 \9\9Position = UDim2.new(0.5, 0, 0, INNER_PAD),\
 \9\9BackgroundTransparency = 1,\
 \9}))\
@@ -12676,6 +12592,25 @@ local function ScriptManager()\
 \9\9_children_6[_length_6 + _k] = _v\
 \9end\
 \9_children_5[_length_5 + 1] = Roact.createElement(\"ScrollingFrame\", _attributes_6, _children_6)\
+\9_children_5[\"infinite-yield\"] = Roact.createElement(ScriptCard, {\
+\9\9index = 0,\
+\9\9backgroundImage = \"rbxassetid://8992291444\",\
+\9\9backgroundImageSize = Vector2.new(1023, 682),\
+\9\9dropshadow = \"rbxassetid://8992291268\",\
+\9\9dropshadowSize = Vector2.new(1.15, 1.4),\
+\9\9dropshadowPosition = Vector2.new(0.5, 0.6),\
+\9\9anchorPoint = Vector2.new(0, 1),\
+\9\9size = UDim2.new(1, -(INNER_PAD * 2), 0, INFINITE_YIELD_HERO_H),\
+\9\9position = UDim2.new(0, INNER_PAD, 1, -INNER_PAD),\
+\9\9onActivate = function()\
+\9\9\9return runScriptFromUrl(INFINITE_YIELD_SOURCE, \"Infinite Yield\")\
+\9\9end,\
+\9}, {\
+\9\9Roact.createElement(Content, {\
+\9\9\9header = \"Infinite Yield\",\
+\9\9\9footer = \"github.com/EdgeIY\",\
+\9\9}),\
+\9})\
 \9_children[_length + 5] = Roact.createElement(Canvas, _attributes_5, _children_5)\
 \9return Roact.createElement(Canvas, _attributes, _children)\
 end\
@@ -12690,51 +12625,13 @@ local TS = require(script.Parent.Parent.Parent.Parent.include.RuntimeLib)\
 local Roact = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact\").src)\
 local pure = TS.import(script, TS.getModule(script, \"@rbxts\", \"roact-hooked\").out).pure\
 local Canvas = TS.import(script, script.Parent.Parent.Parent.Parent, \"components\", \"Canvas\").default\
-local http = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"http\")\
 local scale = TS.import(script, script.Parent.Parent.Parent.Parent, \"utils\", \"udim2\").scale\
-local BASE_PADDING = TS.import(script, script.Parent, \"constants\").BASE_PADDING\
-local Content = TS.import(script, script.Parent, \"Content\").default\
-local ScriptCard = TS.import(script, script.Parent, \"ScriptCard\").default\
 local ScriptManager = TS.import(script, script.Parent, \"ScriptManager\").default\
-local runScriptFromUrl = TS.async(function(url, src)\
-\9local _exitType, _returns = TS.try(function()\
-\9\9local content = TS.await(http.get(url))\
-\9\9local fn, err = loadstring(content, \"@\" .. src)\
-\9\9local _arg1 = \"Failed to call loadstring on Lua script from '\" .. (url .. (\"': \" .. tostring(err)))\
-\9\9assert(fn, _arg1)\
-\9\9task.defer(fn)\
-\9end, function(e)\
-\9\9warn(\"Failed to run Lua script from '\" .. (url .. (\"': \" .. tostring(e))))\
-\9\9return TS.TRY_RETURN, { \"\" }\
-\9end)\
-\9if _exitType then\
-\9\9return unpack(_returns)\
-\9end\
-end)\
 local function Scripts()\
 \9return Roact.createElement(Canvas, {\
 \9\9position = scale(0, 1),\
 \9\9anchor = Vector2.new(0, 1),\
 \9}, {\
-\9\9Roact.createElement(ScriptCard, {\
-\9\9\9onActivate = function()\
-\9\9\9\9return runScriptFromUrl(\"https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source\", \"Infinite Yield\")\
-\9\9\9end,\
-\9\9\9index = 3,\
-\9\9\9backgroundImage = \"rbxassetid://8992291444\",\
-\9\9\9backgroundImageSize = Vector2.new(1023, 682),\
-\9\9\9dropshadow = \"rbxassetid://8992291268\",\
-\9\9\9dropshadowSize = Vector2.new(1.15, 1.4),\
-\9\9\9dropshadowPosition = Vector2.new(0.5, 0.6),\
-\9\9\9anchorPoint = Vector2.new(0, 0.5),\
-\9\9\9size = UDim2.new(1 / 3, -BASE_PADDING, 1, -BASE_PADDING),\
-\9\9\9position = UDim2.new(0, BASE_PADDING / 2, 0.5, 0),\
-\9\9}, {\
-\9\9\9Roact.createElement(Content, {\
-\9\9\9\9header = \"Infinite Yield\",\
-\9\9\9\9footer = \"github.com/EdgeIY\",\
-\9\9\9}),\
-\9\9}),\
 \9\9Roact.createElement(ScriptManager),\
 \9})\
 end\
