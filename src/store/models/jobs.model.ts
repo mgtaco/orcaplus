@@ -22,6 +22,7 @@ export type JobsState = {
 
 	refresh: Job;
 	ghost: Job;
+	noclip: Job;
 	godmode: Job;
 	freecam: Job;
 	espEnabled: Job;

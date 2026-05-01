@@ -9,6 +9,7 @@ const initialState: JobsState = {
 
 	refresh: { active: false },
 	ghost: { active: false },
+	noclip: { active: false },
 	godmode: { active: false },
 	freecam: { active: false },
 	espEnabled: { active: false },

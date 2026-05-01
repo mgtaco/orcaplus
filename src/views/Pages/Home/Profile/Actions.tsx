@@ -17,8 +17,8 @@ function Actions() {
 				position={px(0, 0)}
 			/>
 			<ActionButton
-				action="ghost"
-				hint="<font face='GothamBlack'>Spawn a ghost</font> and go to it when disabled"
+				action="noclip"
+				hint="<font face='GothamBlack'>Toggle noclip</font> to walk through walls"
 				theme={theme}
 				image="rbxassetid://8992253792"
 				position={px(72, 0)}
