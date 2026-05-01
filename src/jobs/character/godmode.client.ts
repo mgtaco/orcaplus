@@ -12,11 +12,8 @@ async function main() {
 		deactivate();
 	}
 
-	await onJobChange("godmode", (job, state) => {
-		if (state.jobs.ghost.active && job.active) {
-			// Can't enable godmode while ghost
-			deactivate();
-		} else if (job.active) {
+	await onJobChange("godmode", (job) => {
+		if (job.active) {
 			// Activate godmode
 			activateGodmode().then(deactivateOnCharacterAdded).catch(errorHandler);
 		}
@@ -33,11 +30,7 @@ async function deactivate() {
 }
 
 async function deactivateOnCharacterAdded() {
-	const store = await getStore();
-	await Promise.fromEvent(player.CharacterAdded, (character) => {
-		const jobs = store.getState().jobs;
-		return !jobs.ghost.active && character !== currentCharacter;
-	});
+	await Promise.fromEvent(player.CharacterAdded, (character) => character !== currentCharacter);
 	await deactivate();
 }
 

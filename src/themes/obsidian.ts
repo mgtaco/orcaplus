@@ -79,7 +79,6 @@ export const obsidian: Theme = {
 				walkSpeed: accent,
 				jumpHeight: accent,
 				refresh: accent,
-				ghost: accent,
 				noclip: accent,
 				godmode: accent,
 				freecam: accent,

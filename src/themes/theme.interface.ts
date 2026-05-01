@@ -56,7 +56,6 @@ export interface Theme {
 				walkSpeed: Color3;
 				jumpHeight: Color3;
 				refresh: Color3;
-				ghost: Color3;
 				noclip: Color3;
 				godmode: Color3;
 				freecam: Color3;

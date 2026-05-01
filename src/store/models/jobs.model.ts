@@ -21,7 +21,6 @@ export type JobsState = {
 	jumpHeight: JobWithValue<number>;
 
 	refresh: Job;
-	ghost: Job;
 	noclip: Job;
 	godmode: Job;
 	freecam: Job;

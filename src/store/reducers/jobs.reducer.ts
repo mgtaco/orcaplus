@@ -8,7 +8,6 @@ const initialState: JobsState = {
 	jumpHeight: { value: 200, active: false },
 
 	refresh: { active: false },
-	ghost: { active: false },
 	noclip: { active: false },
 	godmode: { active: false },
 	freecam: { active: false },

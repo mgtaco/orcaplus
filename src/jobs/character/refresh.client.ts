@@ -17,10 +17,8 @@ async function main() {
 		} as JobsAction);
 	}
 
-	await onJobChange("refresh", (job, state) => {
-		if (state.jobs.ghost.active && job.active) {
-			deactivate();
-		} else if (job.active) {
+	await onJobChange("refresh", (job) => {
+		if (job.active) {
 			respawn()
 				.catch((err) => warn(`[refresh-worker-respawn] ${err}`))
 				.finally(() => deactivate());

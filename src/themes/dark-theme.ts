@@ -133,7 +133,6 @@ export const darkTheme: Theme = {
 				walkSpeed: hex("#EC423D"),
 				jumpHeight: hex("#37CC95"),
 				refresh: hex("#a22df0"),
-				ghost: hex("#FF4040"),
 				noclip: hex("#37CCB8"),
 				godmode: hex("#f09c2d"),
 				freecam: hex("#37CC95"),

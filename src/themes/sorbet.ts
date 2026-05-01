@@ -89,7 +89,6 @@ export const sorbet: Theme = {
 				walkSpeed: mixedAccent,
 				jumpHeight: blueAccent,
 				refresh: redAccent,
-				ghost: blueAccent,
 				noclip: blueAccent,
 				godmode: redAccent,
 				freecam: blueAccent,
