@@ -15,7 +15,7 @@ local DEBUG_MODE = getFlag("debug")
 local VERBOSE = getFlag("verbose")
 local MINIFY = getFlag("minify")
 
-local ROJO_INPUT = "Orca.rbxm"
+local ROJO_INPUT = "dist/Orca.rbxm"
 local RUNTIME_FILE = "ci/runtime.lua"
 local BUNDLE_TEMP = "ci/bundle.tmp"
 

@@ -5,12 +5,13 @@
 		"lint": "npx eslint src --ext .ts,.tsx",
 		"compile": "npx rbxtsc --verbose --type=model",
 		"watch": "npx rbxtsc -w",
-		"build": "rojo build default.project.json --output \"Orca.rbxm\"",
+		"prebuild": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\"",
+		"build": "rojo build default.project.json --output \"dist/Orca.rbxm\"",
 		"serve": "rojo serve place.project.json",
 		"verify": "npm run lint && npm run bundle",
-		"bundle": "npm run compile && npm run build && remodel run ci/bundle.lua public/dev.lua dev verbose",
-		"bundle:dbg": "npm run compile && npm run build && remodel run ci/bundle.lua public/dev.lua dev_dbg debug verbose",
-		"bundle:min": "npm run compile && npm run build && remodel run ci/bundle.lua public/dev.lua dev_min minify verbose"
+		"bundle": "npm run compile && npm run build && remodel run ci/bundle.lua dist/dev.lua dev verbose",
+		"bundle:dbg": "npm run compile && npm run build && remodel run ci/bundle.lua dist/dev.lua dev_dbg debug verbose",
+		"bundle:min": "npm run compile && npm run build && remodel run ci/bundle.lua dist/dev.lua dev_min minify verbose"
 	},
 	"devDependencies": {
 		"@rbxts/compiler-types": "^1.3.2-types.0",

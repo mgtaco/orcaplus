@@ -7,14 +7,7 @@
 **Latest release:**
 ```lua
 loadstring(
-  game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/latest.lua")
-)()
-```
-
-**Snapshot (most recent build):**
-```lua
-loadstring(
-  game:HttpGetAsync("https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/snapshot.lua")
+  game:HttpGetAsync("https://github.com/mgtaco/orcaplus/releases/latest/download/Orca.lua")
 )()
 ```
 

@@ -44,14 +44,22 @@ async function onRejoin() {
 	}
 }
 
-const BASE_URL = "https://raw.githubusercontent.com/mgtaco/orcaplus/master/public/";
-const RELOAD_URL = BASE_URL + (VERSION.match("%.") !== undefined ? "latest.lua" : "snapshot.lua");
+const RELOAD_URL = "https://github.com/mgtaco/orcaplus/releases/latest/download/Orca.lua";
+
+function getReloadScript() {
+	const customReload = getgenv ? (getgenv() as Record<string, unknown>)._ORCA_RELOAD : undefined;
+	if (typeIs(customReload, "string")) {
+		return customReload;
+	}
+
+	return `loadstring(game:HttpGetAsync(${string.format("%q", RELOAD_URL)}))()`;
+}
 
 function queueExecution() {
 	const queueFn = syn?.queue_on_teleport ?? queue_on_teleport;
 	if (!queueFn) return;
 
-	queueFn(`loadstring(game:HttpGetAsync(${string.format("%q", RELOAD_URL)}))()`);
+	queueFn(getReloadScript());
 }
 
 async function main() {

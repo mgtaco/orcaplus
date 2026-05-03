@@ -7,17 +7,17 @@ on:
         description: "Version tag (e.g. v1.2.0)"
         required: true
   release:
-    types: [ published ]
+    types: [published, prereleased]
 
 permissions:
   contents: write
 
 jobs:
-  bundle-release:
+  publish-release:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           repository: ${{ github.event.repository.full_name }}
           ref: "master"
@@ -34,23 +34,20 @@ jobs:
       - name: Install NPM dependencies
         run: npm ci
 
-      - name: Compile roblox-ts
-        run: |
-          npm run compile
-
-      - name: Build model
-        run: |
-          npm run build
+      - name: Compile and build model
+        run: npm run compile && npm run build
 
       - name: Bundle modules
         run: |
-          VERSION=${{ github.event.release.tag_name || github.event.inputs.version }}
-          remodel run ci/bundle.lua public/latest.lua $VERSION minify
-          remodel run ci/bundle.lua public/latest.debug.lua $VERSION-dbg debug
+          VERSION="${{ github.event.release.tag_name || inputs.version }}"
+          remodel run ci/bundle.lua dist/Orca.lua "$VERSION" minify
+          remodel run ci/bundle.lua dist/Orca.debug.lua "$VERSION-debug" debug verbose
 
-      - name: Commit latest
-        uses: EndBug/add-and-commit@v8.0.2
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
         with:
-          default_author: "github_actions"
-          add: "['public/latest.lua', 'public/latest.debug.lua']"
-          message: 🐋 Release ${{ github.event.release.tag_name || github.event.inputs.version }}
+          tag_name: ${{ github.event.release.tag_name || inputs.version }}
+          files: |
+            dist/Orca.lua
+            dist/Orca.debug.lua
+            dist/Orca.rbxm
