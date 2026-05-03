@@ -1,6 +1,6 @@
 import { Workspace } from "@rbxts/services";
 import { getSelectedPlayer } from "jobs/helpers/get-selected-player";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, onJobChange, trackCleanup, trackConnection } from "jobs/helpers/job-store";
 import { setJobActive } from "store/actions/jobs.action";
 
 async function main() {
@@ -13,20 +13,33 @@ async function main() {
 	let currentSubject: Humanoid | BasePart | undefined;
 	let defaultSubject: Humanoid | BasePart | undefined;
 
+	trackCleanup(() => {
+		if (shouldResetCameraSubject) {
+			Workspace.CurrentCamera!.CameraSubject = defaultSubject;
+		}
+		shouldResetCameraSubject = false;
+		currentSubject = undefined;
+		defaultSubject = undefined;
+	});
+
 	// When a third party changes the camera subject, disable spectate mode
 	// without resetting the camera subject.
 	function connectCameraSubject(camera: Camera) {
-		camera.GetPropertyChangedSignal("CameraSubject").Connect(() => {
-			if (currentSubject !== camera.CameraSubject && store.getState().jobs.spectate.active) {
-				shouldResetCameraSubject = false;
-				store.dispatch(setJobActive("spectate", false));
-			}
-		});
+		trackConnection(
+			camera.GetPropertyChangedSignal("CameraSubject").Connect(() => {
+				if (currentSubject !== camera.CameraSubject && store.getState().jobs.spectate.active) {
+					shouldResetCameraSubject = false;
+					store.dispatch(setJobActive("spectate", false));
+				}
+			}),
+		);
 	}
 
-	Workspace.GetPropertyChangedSignal("CurrentCamera").Connect(() => {
-		connectCameraSubject(Workspace.CurrentCamera!);
-	});
+	trackConnection(
+		Workspace.GetPropertyChangedSignal("CurrentCamera").Connect(() => {
+			connectCameraSubject(Workspace.CurrentCamera!);
+		}),
+	);
 	connectCameraSubject(Workspace.CurrentCamera!);
 
 	await onJobChange("spectate", (job) => {

@@ -1,5 +1,5 @@
 import { HttpService } from "@rbxts/services";
-import { getStore } from "jobs/helpers/job-store";
+import { getStore, trackRoduxConnection } from "jobs/helpers/job-store";
 import { RootState } from "store/store";
 
 if (makefolder && !isfolder("_orca")) {
@@ -52,11 +52,13 @@ async function autosave(name: string, selector: (state: RootState) => object) {
 	}
 
 	let previous = selector(store.getState());
-	store.changed.connect((newState: RootState) => {
-		const current = selector(newState);
-		if (current !== previous) {
-			previous = current;
-			save(current);
-		}
-	});
+	trackRoduxConnection(
+		store.changed.connect((newState: RootState) => {
+			const current = selector(newState);
+			if (current !== previous) {
+				previous = current;
+				save(current);
+			}
+		}),
+	);
 }

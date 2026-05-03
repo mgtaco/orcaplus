@@ -1,6 +1,6 @@
 import Make from "@rbxts/make";
 import { Lighting } from "@rbxts/services";
-import { getStore } from "jobs/helpers/job-store";
+import { getStore, trackCleanup, trackRoduxConnection } from "jobs/helpers/job-store";
 import { setTimeout, Timeout } from "utils/timeout";
 
 const baseEffect = Make("DepthOfFieldEffect", {
@@ -34,22 +34,28 @@ async function main() {
 	}
 
 	let timeout: Timeout | undefined;
-
-	store.changed.connect((newState) => {
+	trackCleanup(() => {
 		timeout?.clear();
-		timeout = undefined;
-
-		if (!newState.dashboard.isOpen) {
-			timeout = setTimeout(disableAcrylic, 500);
-			return;
-		}
-
-		if (newState.options.config.acrylicBlur) {
-			enableAcrylic();
-		} else {
-			disableAcrylic();
-		}
+		disableAcrylic();
 	});
+
+	trackRoduxConnection(
+		store.changed.connect((newState) => {
+			timeout?.clear();
+			timeout = undefined;
+
+			if (!newState.dashboard.isOpen) {
+				timeout = setTimeout(disableAcrylic, 500);
+				return;
+			}
+
+			if (newState.options.config.acrylicBlur) {
+				enableAcrylic();
+			} else {
+				disableAcrylic();
+			}
+		}),
+	);
 }
 
 main().catch((err) => {

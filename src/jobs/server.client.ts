@@ -1,5 +1,5 @@
 import { HttpService, Players, TeleportService } from "@rbxts/services";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, onJobChange, trackCleanup } from "jobs/helpers/job-store";
 import { setJobActive } from "store/actions/jobs.action";
 import * as http from "utils/http";
 import { setTimeout, Timeout } from "utils/timeout";
@@ -62,6 +62,7 @@ async function main() {
 		timeout?.clear();
 		timeout = undefined;
 	}
+	trackCleanup(clearTimeout);
 
 	await onJobChange("rejoinServer", (job, state) => {
 		clearTimeout();

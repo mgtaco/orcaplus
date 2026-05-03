@@ -1,11 +1,16 @@
 import { Players, RunService } from "@rbxts/services";
-import { onJobChange } from "jobs/helpers/job-store";
+import { onJobChange, trackCleanup, trackConnection } from "jobs/helpers/job-store";
 
 const player = Players.LocalPlayer;
 const originalCollisions = new Map<BasePart, boolean>();
 let enabled = false;
 
 async function main() {
+	trackCleanup(() => {
+		enabled = false;
+		restoreCollisions();
+	});
+
 	await onJobChange("noclip", (job) => {
 		enabled = job.active;
 		if (enabled) {
@@ -33,12 +38,14 @@ async function main() {
 		}
 	};
 
-	RunService.Stepped.Connect(disableCollisions);
-	RunService.Heartbeat.Connect(disableCollisions);
+	trackConnection(RunService.Stepped.Connect(disableCollisions));
+	trackConnection(RunService.Heartbeat.Connect(disableCollisions));
 
-	player.CharacterAdded.Connect(() => {
-		originalCollisions.clear();
-	});
+	trackConnection(
+		player.CharacterAdded.Connect(() => {
+			originalCollisions.clear();
+		}),
+	);
 }
 
 function snapshotCollisions() {

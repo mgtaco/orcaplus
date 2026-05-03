@@ -1,5 +1,5 @@
 import { Players } from "@rbxts/services";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, onJobChange, trackCleanup, trackConnection } from "jobs/helpers/job-store";
 import { JobWithValue } from "store/models/jobs.model";
 
 const JUMP_POWER_CONSTANT = 349.24;
@@ -20,6 +20,10 @@ async function main() {
 	let walkSpeedJob = state.jobs.walkSpeed;
 	let jumpHeightJob = state.jobs.jumpHeight;
 
+	trackCleanup(() => {
+		restoreHumanoid(humanoid);
+	});
+
 	await onJobChange("walkSpeed", (job) => {
 		if (job.active && !walkSpeedJob.active) {
 			setDefaultWalkSpeed(humanoid);
@@ -36,22 +40,24 @@ async function main() {
 		updateJumpHeight(humanoid, jumpHeightJob);
 	});
 
-	player.CharacterAdded.Connect((character) => {
-		const newHumanoid = character.WaitForChild("Humanoid", 5);
-		if (newHumanoid && newHumanoid.IsA("Humanoid")) {
-			humanoid = newHumanoid;
+	trackConnection(
+		player.CharacterAdded.Connect((character) => {
+			const newHumanoid = character.WaitForChild("Humanoid", 5);
+			if (newHumanoid && newHumanoid.IsA("Humanoid")) {
+				humanoid = newHumanoid;
 
-			setDefaultWalkSpeed(newHumanoid);
-			setDefaultJumpHeight(newHumanoid);
+				setDefaultWalkSpeed(newHumanoid);
+				setDefaultJumpHeight(newHumanoid);
 
-			if (walkSpeedJob.active) {
-				updateWalkSpeed(newHumanoid, walkSpeedJob);
+				if (walkSpeedJob.active) {
+					updateWalkSpeed(newHumanoid, walkSpeedJob);
+				}
+				if (jumpHeightJob.active) {
+					updateJumpHeight(newHumanoid, jumpHeightJob);
+				}
 			}
-			if (jumpHeightJob.active) {
-				updateJumpHeight(newHumanoid, jumpHeightJob);
-			}
-		}
-	});
+		}),
+	);
 
 	setDefaultWalkSpeed(humanoid);
 	setDefaultJumpHeight(humanoid);
@@ -94,6 +100,18 @@ function updateJumpHeight(humanoid: Humanoid | undefined, jumpHeightJob: JobWith
 		if (humanoid.UseJumpPower) {
 			humanoid.JumpPower = math.sqrt(JUMP_POWER_CONSTANT * defaults.jumpHeight);
 		}
+	}
+}
+
+function restoreHumanoid(humanoid: Humanoid | undefined) {
+	if (!humanoid || humanoid.Parent === undefined) {
+		return;
+	}
+
+	humanoid.WalkSpeed = defaults.walkSpeed;
+	humanoid.JumpHeight = defaults.jumpHeight;
+	if (humanoid.UseJumpPower) {
+		humanoid.JumpPower = math.sqrt(JUMP_POWER_CONSTANT * defaults.jumpHeight);
 	}
 }
 

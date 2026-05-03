@@ -3,7 +3,7 @@ import Roact from "@rbxts/roact";
 import { Provider } from "@rbxts/roact-rodux-hooked";
 import { Players } from "@rbxts/services";
 import { IS_DEV } from "constants";
-import { setStore } from "jobs";
+import { setStore, trackCleanup } from "jobs";
 import { toggleDashboard } from "store/actions/dashboard.action";
 import { configureStore } from "store/store";
 import App from "./App";
@@ -54,7 +54,24 @@ async function main() {
 		container,
 	);
 	const app = container.WaitForChild(1) as ScreenGui;
+	app.Name = "Orca";
 	render(app);
+
+	trackCleanup(() => {
+		pcall(() => Roact.unmount(tree));
+		pcall(() => app.Destroy());
+
+		if (getgenv) {
+			const g = getgenv() as Record<string, unknown>;
+			if (g._ORCA_TREE === tree) {
+				g._ORCA_TREE = undefined;
+			}
+			if (g._ORCA_APP === app) {
+				g._ORCA_APP = undefined;
+			}
+			g._ORCA_IS_LOADED = undefined;
+		}
+	});
 
 	if (getgenv) {
 		const g = getgenv() as Record<string, unknown>;

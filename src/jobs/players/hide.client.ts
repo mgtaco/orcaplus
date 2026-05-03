@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services";
 import { getSelectedPlayer } from "jobs/helpers/get-selected-player";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, onJobChange, trackCleanup, trackConnection } from "jobs/helpers/job-store";
 import { setJobActive } from "store/actions/jobs.action";
 
 // Store the currently hidden character to restore them later. Don't replace
@@ -19,8 +19,9 @@ function hide(player: Player) {
 		character,
 		parent: character.Parent,
 		handle: player.CharacterAdded.Connect((newCharacter) => {
+			data.parent = newCharacter.Parent;
+			data.character = newCharacter;
 			newCharacter.Parent = undefined;
-			data.character = character;
 		}),
 	};
 	current.set(player, data);
@@ -47,13 +48,23 @@ async function main() {
 		store.dispatch(setJobActive("hide", player ? current.has(player) : false));
 	});
 
-	Players.PlayerRemoving.Connect((player) => {
-		if (player === playerSelected.current) {
-			store.dispatch(setJobActive("hide", false));
-		} else {
-			unhide(player, false);
+	trackCleanup(() => {
+		const players = new Array<Player>();
+		current.forEach((_, player) => players.push(player));
+		for (const player of players) {
+			unhide(player, true);
 		}
 	});
+
+	trackConnection(
+		Players.PlayerRemoving.Connect((player) => {
+			if (player === playerSelected.current) {
+				store.dispatch(setJobActive("hide", false));
+			} else {
+				unhide(player, false);
+			}
+		}),
+	);
 
 	await onJobChange("hide", (job) => {
 		const player = playerSelected.current;

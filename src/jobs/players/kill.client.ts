@@ -1,12 +1,14 @@
 import { Players, Workspace } from "@rbxts/services";
 import { getSelectedPlayer } from "jobs/helpers/get-selected-player";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { assertOrcaAlive, getStore, isOrcaAlive, onJobChange, trackPromise } from "jobs/helpers/job-store";
 import { setJobActive } from "store/actions/jobs.action";
 
 const player = Players.LocalPlayer;
 
 // https://github.com/EdgeIY/infiniteyield/blob/master/source#L11261
 async function attachToVictim(victim: Player): Promise<BasePart> {
+	assertOrcaAlive();
+
 	const backpack = player.FindFirstChildWhichIsA("Backpack");
 	if (!backpack) {
 		throw "No inventory found";
@@ -52,6 +54,7 @@ async function attachToVictim(victim: Player): Promise<BasePart> {
 
 	// Teleport to victim to cause the equip bug
 	for (let count = 0; count < 250; count++) {
+		assertOrcaAlive();
 		if (victimRootPart.Parent !== victimCharacter || playerRootPart.Parent !== playerCharacter) {
 			throw "Victim or local player has no root part; did a player respawn?";
 		}
@@ -69,6 +72,8 @@ async function attachToVictim(victim: Player): Promise<BasePart> {
 
 // https://github.com/EdgeIY/infiniteyield/blob/master/source#L11297
 async function bringVictimToVoid(victim: Player) {
+	assertOrcaAlive();
+
 	const store = await getStore();
 
 	const oldRootPart = player.Character?.FindFirstChild("HumanoidRootPart");
@@ -78,11 +83,14 @@ async function bringVictimToVoid(victim: Player) {
 	store.dispatch(setJobActive("refresh", true));
 
 	// Wait for the character to respawn
-	await Promise.fromEvent(
-		player.CharacterAdded,
-		(character) => character.WaitForChild("HumanoidRootPart", 5) !== undefined,
+	await trackPromise(
+		Promise.fromEvent(
+			player.CharacterAdded,
+			(character) => character.WaitForChild("HumanoidRootPart", 5) !== undefined,
+		),
 	);
 	task.wait(0.3);
+	assertOrcaAlive();
 
 	// Abuse a bug to have two players equip one tool at the same time
 	const rootPart = await attachToVictim(victim);
@@ -90,6 +98,7 @@ async function bringVictimToVoid(victim: Player) {
 	// Teleport to the void, stop when either player has no root part
 	const [victimCharacter, playerCharacter] = [victim.Character!, player.Character!];
 	do {
+		assertOrcaAlive();
 		task.wait(0.1);
 		rootPart.CFrame = new CFrame(1000000, Workspace.FallenPartsDestroyHeight + 5, 1000000);
 	} while (
@@ -98,12 +107,14 @@ async function bringVictimToVoid(victim: Player) {
 	);
 
 	// Wait for the local character to respawn, and return to original location
-	const newCharacter = await Promise.fromEvent<Model & { HumanoidRootPart: BasePart }>(
-		player.CharacterAdded,
-		(character) => character.WaitForChild("HumanoidRootPart", 5) !== undefined,
+	const newCharacter = await trackPromise(
+		Promise.fromEvent<Model & { HumanoidRootPart: BasePart }>(
+			player.CharacterAdded,
+			(character) => character.WaitForChild("HumanoidRootPart", 5) !== undefined,
+		),
 	);
 
-	if (location) {
+	if (location && isOrcaAlive()) {
 		newCharacter.HumanoidRootPart.CFrame = location;
 	}
 }
@@ -120,8 +131,16 @@ async function main() {
 			}
 
 			bringVictimToVoid(playerSelected.current)
-				.catch((err) => warn(`[kill-worker] ${err}`))
-				.finally(() => store.dispatch(setJobActive("kill", false)));
+				.catch((err) => {
+					if (isOrcaAlive()) {
+						warn(`[kill-worker] ${err}`);
+					}
+				})
+				.finally(() => {
+					if (isOrcaAlive()) {
+						store.dispatch(setJobActive("kill", false));
+					}
+				});
 		}
 	});
 }

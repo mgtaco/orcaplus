@@ -1,5 +1,5 @@
 import { Players, Workspace } from "@rbxts/services";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, isOrcaAlive, onJobChange, trackCleanup, trackPromise } from "jobs/helpers/job-store";
 import { JobsAction } from "store/actions/jobs.action";
 
 const player = Players.LocalPlayer;
@@ -7,7 +7,14 @@ const player = Players.LocalPlayer;
 let currentCharacter: Model | undefined;
 
 async function main() {
+	trackCleanup(() => {
+		currentCharacter = undefined;
+	});
+
 	function errorHandler(err: unknown) {
+		if (!isOrcaAlive()) {
+			return;
+		}
 		warn(`[godmode-worker] ${err}`);
 		deactivate();
 	}
@@ -21,6 +28,9 @@ async function main() {
 }
 
 async function deactivate() {
+	if (!isOrcaAlive()) {
+		return;
+	}
 	const store = await getStore();
 	store.dispatch({
 		type: "jobs/setJobActive",
@@ -30,7 +40,7 @@ async function deactivate() {
 }
 
 async function deactivateOnCharacterAdded() {
-	await Promise.fromEvent(player.CharacterAdded, (character) => character !== currentCharacter);
+	await trackPromise(Promise.fromEvent(player.CharacterAdded, (character) => character !== currentCharacter));
 	await deactivate();
 }
 
@@ -66,7 +76,9 @@ async function activateGodmode() {
 	Workspace.CurrentCamera!.CameraSubject = mockHumanoid;
 	task.defer(() => {
 		// TODO: Check if this is optional
-		Workspace.CurrentCamera!.CFrame = cameraCFrame;
+		if (isOrcaAlive()) {
+			Workspace.CurrentCamera!.CFrame = cameraCFrame;
+		}
 	});
 
 	const animation = character.FindFirstChild("Animate") as LocalScript | undefined;

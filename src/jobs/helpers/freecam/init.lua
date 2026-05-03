@@ -19,6 +19,20 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
+local function trackCleanup(cleanup)
+	local ok, genv = pcall(function()
+		return getgenv and getgenv()
+	end)
+	if not ok or not genv then
+		return
+	end
+
+	local session = genv._ORCA_SESSION
+	if session and session.alive and session.cleanups then
+		table.insert(session.cleanups, cleanup)
+	end
+end
+
 local LocalPlayer = Players.LocalPlayer
 if not LocalPlayer then
 	Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
@@ -26,11 +40,14 @@ if not LocalPlayer then
 end
 
 local Camera = Workspace.CurrentCamera
-Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+local cameraHandle = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 	local newCamera = Workspace.CurrentCamera
 	if newCamera then
 		Camera = newCamera
 	end
+end)
+trackCleanup(function()
+	cameraHandle:Disconnect()
 end)
 
 ------------------------------------------------------------------------
@@ -450,6 +467,7 @@ local function DisableFreecam()
 		enabled = false
 	end
 end
+trackCleanup(DisableFreecam)
 
 return {
 	EnableFreecam = EnableFreecam,

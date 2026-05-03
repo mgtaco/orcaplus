@@ -1,1 +1,10 @@
-export { setStore } from "./helpers/job-store";
+export {
+	assertOrcaAlive,
+	isOrcaAlive,
+	setStore,
+	trackCleanup,
+	trackConnection,
+	trackPromise,
+	trackRoduxConnection,
+	trackTimeout,
+} from "./helpers/job-store";

@@ -1,5 +1,5 @@
 import { Players, RunService, Workspace } from "@rbxts/services";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, onJobChange, trackCleanup, trackConnection } from "jobs/helpers/job-store";
 
 const LOCAL_PLAYER = Players.LocalPlayer;
 const HIGHLIGHT_NAME = "OrcaESP";
@@ -254,6 +254,29 @@ function clearAll() {
 	nameTags.forEach((_, c) => removeNameTag(c));
 	healthBars.forEach((_, c) => removeHealthBar(c));
 	tracerLines.forEach((_, c) => removeTracer(c));
+
+	for (const player of Players.GetPlayers()) {
+		const character = player.Character;
+		if (character) {
+			clearNamedInstances(character);
+		}
+	}
+}
+
+function clearNamedInstances(character: Model) {
+	const highlight = character.FindFirstChild(HIGHLIGHT_NAME);
+	if (highlight?.IsA("Highlight")) {
+		highlight.Destroy();
+	}
+
+	for (const descendant of character.GetDescendants()) {
+		if (
+			(descendant.Name === NAMETAG_NAME || descendant.Name === HEALTHBAR_NAME) &&
+			descendant.IsA("BillboardGui")
+		) {
+			descendant.Destroy();
+		}
+	}
 }
 
 /**
@@ -267,10 +290,12 @@ function startLoop(getLatest: () => EspState) {
 		espConnection = undefined;
 	}
 	syncAll(getLatest());
-	espConnection = RunService.Heartbeat.Connect(() => {
-		syncAll(getLatest());
-		updateTracerPositions();
-	});
+	espConnection = trackConnection(
+		RunService.Heartbeat.Connect(() => {
+			syncAll(getLatest());
+			updateTracerPositions();
+		}),
+	);
 }
 
 function stopLoop() {
@@ -288,6 +313,10 @@ function anyActive(state: EspState) {
 
 async function main() {
 	const store = await getStore();
+	trackCleanup(() => {
+		stopLoop();
+		clearAll();
+	});
 
 	const getState = (): EspState => {
 		const jobs = store.getState().jobs;
@@ -313,14 +342,16 @@ async function main() {
 		}
 	};
 
-	Players.PlayerRemoving.Connect((player) => {
-		if (player !== LOCAL_PLAYER && player.Character) {
-			removeHighlight(player.Character);
-			removeNameTag(player.Character);
-			removeHealthBar(player.Character);
-			removeTracer(player.Character);
-		}
-	});
+	trackConnection(
+		Players.PlayerRemoving.Connect((player) => {
+			if (player !== LOCAL_PLAYER && player.Character) {
+				removeHighlight(player.Character);
+				removeNameTag(player.Character);
+				removeHealthBar(player.Character);
+				removeTracer(player.Character);
+			}
+		}),
+	);
 
 	if (anyActive(getState())) refresh();
 

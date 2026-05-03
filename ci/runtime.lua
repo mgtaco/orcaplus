@@ -55,6 +55,33 @@ local modules = {}
 ---@type table<LocalScript | ModuleScript, ModuleScript>
 local currentlyLoading = {}
 
+local function getOrcaGlobal()
+	local ok, genv = pcall(function()
+		return getgenv and getgenv()
+	end)
+	if ok then
+		return genv
+	end
+end
+
+local function setOrcaRoot(instance, path)
+	if path ~= "Orca" then
+		return
+	end
+
+	local g = getOrcaGlobal()
+	if not g then
+		return
+	end
+
+	if g._ORCA_ROOT and not g._ORCA_SESSION then
+		pcall(function()
+			g._ORCA_ROOT:Destroy()
+		end)
+	end
+	g._ORCA_ROOT = instance
+end
+
 -- Module resolution
 
 ---@param module LocalScript | ModuleScript
@@ -155,6 +182,7 @@ local function newModule(name, className, path, parent, fn)
 
 	instanceFromId[path] = instance
 	idFromInstance[instance] = path
+	setOrcaRoot(instance, path)
 
 	modules[instance] = {
 		fn = fn,
@@ -174,6 +202,7 @@ local function newInstance(name, className, path, parent)
 
 	instanceFromId[path] = instance
 	idFromInstance[instance] = path
+	setOrcaRoot(instance, path)
 end
 
 -- Runtime

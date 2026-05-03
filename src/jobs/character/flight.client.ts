@@ -1,6 +1,6 @@
 import { GroupMotor, Spring } from "@rbxts/flipper";
 import { Players, RunService, UserInputService, Workspace } from "@rbxts/services";
-import { onJobChange } from "jobs/helpers/job-store";
+import { onJobChange, trackCleanup, trackConnection } from "jobs/helpers/job-store";
 
 const player = Players.LocalPlayer;
 const moveDirection = {
@@ -23,6 +23,13 @@ let coordinate: CFrame | undefined;
 let coordinateSpring = new GroupMotor([0, 0, 0], false);
 
 async function main() {
+	trackCleanup(() => {
+		enabled = false;
+		humanoidRoot = undefined;
+		coordinate = undefined;
+		resetDirection();
+	});
+
 	await onJobChange("flight", (job) => {
 		enabled = job.active;
 		speed = job.value;
@@ -32,45 +39,59 @@ async function main() {
 		}
 	});
 
-	UserInputService.InputBegan.Connect((input, gameProcessed) => {
-		if (gameProcessed) {
-			return;
-		}
-		updateDirection(input.KeyCode, true);
-	});
+	trackConnection(
+		UserInputService.InputBegan.Connect((input, gameProcessed) => {
+			if (gameProcessed) {
+				return;
+			}
+			updateDirection(input.KeyCode, true);
+		}),
+	);
 
-	UserInputService.InputEnded.Connect((input) => {
-		updateDirection(input.KeyCode, false);
-	});
+	trackConnection(
+		UserInputService.InputEnded.Connect((input) => {
+			updateDirection(input.KeyCode, false);
+		}),
+	);
 
-	RunService.Heartbeat.Connect((deltaTime) => {
-		if (enabled && humanoidRoot && coordinate) {
-			updateCoordinate(deltaTime);
-			coordinateSpring.setGoal([new Spring(coordinate.X), new Spring(coordinate.Y), new Spring(coordinate.Z)]);
-			coordinateSpring.step(deltaTime);
+	trackConnection(
+		RunService.Heartbeat.Connect((deltaTime) => {
+			if (enabled && humanoidRoot && coordinate) {
+				updateCoordinate(deltaTime);
+				coordinateSpring.setGoal([
+					new Spring(coordinate.X),
+					new Spring(coordinate.Y),
+					new Spring(coordinate.Z),
+				]);
+				coordinateSpring.step(deltaTime);
 
-			const [x, y, z] = coordinateSpring.getValue();
-			humanoidRoot.AssemblyLinearVelocity = new Vector3();
-			humanoidRoot.CFrame = Workspace.CurrentCamera!.CFrame.Rotation.add(new Vector3(x, y, z));
-		}
-	});
+				const [x, y, z] = coordinateSpring.getValue();
+				humanoidRoot.AssemblyLinearVelocity = new Vector3();
+				humanoidRoot.CFrame = Workspace.CurrentCamera!.CFrame.Rotation.add(new Vector3(x, y, z));
+			}
+		}),
+	);
 
 	// Update root part CFrame with the Camera's current direction. May be removed
 	// in the future.
-	RunService.RenderStepped.Connect(() => {
-		if (enabled && humanoidRoot && coordinate) {
-			humanoidRoot.CFrame = Workspace.CurrentCamera!.CFrame.Rotation.add(humanoidRoot.CFrame.Position);
-		}
-	});
+	trackConnection(
+		RunService.RenderStepped.Connect(() => {
+			if (enabled && humanoidRoot && coordinate) {
+				humanoidRoot.CFrame = Workspace.CurrentCamera!.CFrame.Rotation.add(humanoidRoot.CFrame.Position);
+			}
+		}),
+	);
 
-	player.CharacterAdded.Connect((character) => {
-		const newHumanoidRoot = character.WaitForChild("HumanoidRootPart", 5);
-		if (newHumanoidRoot && newHumanoidRoot.IsA("BasePart")) {
-			humanoidRoot = newHumanoidRoot;
-		}
-		resetCoordinate();
-		resetSpring();
-	});
+	trackConnection(
+		player.CharacterAdded.Connect((character) => {
+			const newHumanoidRoot = character.WaitForChild("HumanoidRootPart", 5);
+			if (newHumanoidRoot && newHumanoidRoot.IsA("BasePart")) {
+				humanoidRoot = newHumanoidRoot;
+			}
+			resetCoordinate();
+			resetSpring();
+		}),
+	);
 
 	const currentHumanoidRoot = player.Character?.FindFirstChild("HumanoidRootPart");
 	if (currentHumanoidRoot && currentHumanoidRoot.IsA("BasePart")) {
@@ -139,6 +160,15 @@ function updateDirection(code: Enum.KeyCode, begin: boolean) {
 			moveDirection.down = begin ? new Vector3(0, 1, 0) : new Vector3();
 			break;
 	}
+}
+
+function resetDirection() {
+	moveDirection.forward = new Vector3();
+	moveDirection.backward = new Vector3();
+	moveDirection.left = new Vector3();
+	moveDirection.right = new Vector3();
+	moveDirection.up = new Vector3();
+	moveDirection.down = new Vector3();
 }
 
 main().catch((err) => {

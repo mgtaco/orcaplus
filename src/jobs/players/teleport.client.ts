@@ -1,6 +1,6 @@
 import { Players } from "@rbxts/services";
 import { getSelectedPlayer } from "jobs/helpers/get-selected-player";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, onJobChange, trackCleanup } from "jobs/helpers/job-store";
 import { setJobActive } from "store/actions/jobs.action";
 import { setTimeout, Timeout } from "utils/timeout";
 
@@ -11,6 +11,10 @@ async function main() {
 	});
 
 	let timeout: Timeout | undefined;
+	trackCleanup(() => {
+		timeout?.clear();
+		timeout = undefined;
+	});
 
 	await onJobChange("teleport", (job) => {
 		timeout?.clear();

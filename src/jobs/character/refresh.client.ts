@@ -1,5 +1,5 @@
 import { Players, Workspace } from "@rbxts/services";
-import { getStore, onJobChange } from "jobs/helpers/job-store";
+import { getStore, isOrcaAlive, onJobChange, trackPromise } from "jobs/helpers/job-store";
 import { JobsAction } from "store/actions/jobs.action";
 
 const MAX_RESPAWN_TIME = 10;
@@ -20,8 +20,16 @@ async function main() {
 	await onJobChange("refresh", (job) => {
 		if (job.active) {
 			respawn()
-				.catch((err) => warn(`[refresh-worker-respawn] ${err}`))
-				.finally(() => deactivate());
+				.catch((err) => {
+					if (isOrcaAlive()) {
+						warn(`[refresh-worker-respawn] ${err}`);
+					}
+				})
+				.finally(() => {
+					if (isOrcaAlive()) {
+						deactivate();
+					}
+				});
 		}
 	});
 }
@@ -50,16 +58,17 @@ async function respawn() {
 		return; // Skip waiting for character to respawn
 	}
 
-	const newCharacter = await Promise.fromEvent(player.CharacterAdded).timeout(
-		MAX_RESPAWN_TIME,
-		"CharacterAdded event timed out",
+	const newCharacter = await trackPromise(
+		Promise.fromEvent(player.CharacterAdded).timeout(MAX_RESPAWN_TIME, "CharacterAdded event timed out"),
 	);
 
 	const humanoidRoot = newCharacter.WaitForChild("HumanoidRootPart", 5);
 
 	if (humanoidRoot && humanoidRoot.IsA("BasePart") && respawnLocation) {
 		task.delay(0.1, () => {
-			humanoidRoot.CFrame = respawnLocation;
+			if (isOrcaAlive()) {
+				humanoidRoot.CFrame = respawnLocation;
+			}
 		});
 	}
 }
