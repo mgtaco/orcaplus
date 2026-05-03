@@ -8,7 +8,7 @@ import { useViewportSize } from "hooks/common/use-viewport-size";
 import { hex } from "utils/color3";
 import { map } from "utils/number-util";
 import { scale } from "utils/udim2";
-import Hint from "views/Hint";
+import Hint from "features/Hint";
 import Clock from "../Clock";
 import Navbar from "../Navbar";
 import Pages from "../Pages";

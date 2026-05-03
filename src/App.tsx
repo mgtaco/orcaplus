@@ -1,5 +1,5 @@
 import Roact from "@rbxts/roact";
-import Dashboard from "./views/Dashboard";
+import Dashboard from "./features/Dashboard";
 
 // Above topbar, below prompts
 const DISPLAY_ORDER = 7;

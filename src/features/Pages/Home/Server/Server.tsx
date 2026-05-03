@@ -6,7 +6,7 @@ import { IS_DEV } from "constants";
 import { useTheme } from "hooks/use-theme";
 import { DashboardPage } from "store/models/dashboard.model";
 import { px } from "utils/udim2";
-import ServerAction from "views/Pages/Home/Server/ServerAction";
+import ServerAction from "features/Pages/Home/Server/ServerAction";
 import StatusLabel from "./StatusLabel";
 
 function Server() {
