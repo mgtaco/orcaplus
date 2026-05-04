@@ -38,8 +38,9 @@ Press `K` to open or close Orca. A 1080p monitor or above is recommended.
 
 ### 📰 Scripts
 
-- **Infinite Yield** — one-click loader for [EdgeIY/infiniteyield](https://github.com/EdgeIY/infiniteyield)
-- **Script Manager** — write or paste custom Lua scripts, save them to `_orca/scripts/`, and run them any time
+- **Infinite Yield** — [EdgeIY/infiniteyield](https://github.com/EdgeIY/infiniteyield)
+- **Dex Explorer** — [LorekeeperZinnia/Dex](https://github.com/LorekeeperZinnia/Dex)
+- **Script Manager** — write or paste custom Lua scripts, save them to `_orca/scripts/`
 
 ### ⚙️ Options
 

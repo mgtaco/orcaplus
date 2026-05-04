@@ -1,14 +1,8 @@
 import Rodux from "@rbxts/rodux";
 import { HttpService } from "@rbxts/services";
 import { ScriptsAction } from "store/actions/scripts.action";
-import { CustomScript, ScriptsState } from "store/models/scripts.model";
-import { basenameNoExt, SCRIPTS_FOLDER, toFilename } from "utils/script-files";
-
-function ensureFolder(): void {
-	if (isfolder && !isfolder(SCRIPTS_FOLDER)) {
-		makefolder(SCRIPTS_FOLDER);
-	}
-}
+import type { CustomScript, ScriptsState } from "store/models/scripts.model";
+import { ensureScriptsFolder, loadScriptsFromFolder, SCRIPTS_FOLDER, toFilename } from "utils/script-files";
 
 /** One-time migration: if old scripts.json exists, save each entry as a .lua file. */
 function migrateFromJson(): void {
@@ -27,33 +21,14 @@ function migrateFromJson(): void {
 	}
 }
 
-function loadScriptsFromFolder(): CustomScript[] {
-	ensureFolder();
+function loadInitialScripts(): CustomScript[] {
+	ensureScriptsFolder();
 	migrateFromJson();
-
-	if (!listfiles || !readfile) return [];
-
-	const loaded: CustomScript[] = [];
-	for (const filePath of listfiles(SCRIPTS_FOLDER)) {
-		if (filePath.sub(-4) !== ".lua") continue;
-		const filename = basenameNoExt(filePath);
-		if (filename === "") continue;
-		try {
-			loaded.push({
-				id: HttpService.GenerateGUID(false),
-				name: filename,
-				filename,
-				code: readfile(filePath),
-			});
-		} catch (e) {
-			warn(`[Orca] Could not read script '${filePath}': ${e}`);
-		}
-	}
-	return loaded;
+	return loadScriptsFromFolder();
 }
 
 const initialState: ScriptsState = {
-	scripts: loadScriptsFromFolder(),
+	scripts: loadInitialScripts(),
 };
 
 export const scriptsReducer = Rodux.createReducer<ScriptsState, ScriptsAction>(initialState, {
@@ -64,6 +39,13 @@ export const scriptsReducer = Rodux.createReducer<ScriptsState, ScriptsAction>(i
 	"scripts/remove": (state, action) => ({
 		...state,
 		scripts: state.scripts.filter((s) => s.id !== action.id),
+	}),
+	"scripts/refresh": (state, action) => ({
+		...state,
+		scripts: action.scripts.map((entry) => {
+			const existing = state.scripts.find((s) => s.filename === entry.filename);
+			return existing === undefined ? entry : { ...entry, id: existing.id, name: existing.name };
+		}),
 	}),
 	"scripts/update": (state, action) => ({
 		...state,

@@ -1,5 +1,5 @@
 import Roact from "@rbxts/roact";
-import { hooked, useBinding, useEffect, useState } from "@rbxts/roact-hooked";
+import { hooked, useBinding, useEffect, useRef, useState } from "@rbxts/roact-hooked";
 import { HttpService } from "@rbxts/services";
 import Acrylic from "components/Acrylic";
 import Border from "components/Border";
@@ -13,12 +13,12 @@ import { useSpring } from "hooks/common/use-spring";
 import { useIsPageOpen } from "hooks/use-current-page";
 import { useTheme } from "hooks/use-theme";
 import { clearHint, setHint } from "store/actions/dashboard.action";
-import { addScript, removeScript, updateScript } from "store/actions/scripts.action";
+import { addScript, refreshScripts, removeScript, updateScript } from "store/actions/scripts.action";
 import { DashboardPage } from "store/models/dashboard.model";
 import { Theme } from "themes/theme.interface";
 import { px, scale } from "utils/udim2";
 import * as http from "utils/http";
-import { SCRIPTS_FOLDER, toFilename } from "utils/script-files";
+import { ensureScriptsFolder, loadScriptsFromFolder, SCRIPTS_FOLDER, toFilename } from "utils/script-files";
 import { BASE_PADDING } from "./constants";
 import Content from "./Content";
 import ScriptCard from "./ScriptCard";
@@ -33,6 +33,14 @@ const FORM_FIELD_GAP = 10;
 const FORM_SAVE_H = 44;
 const FORM_HEIGHT = FORM_PAD_V * 2 + FORM_NAME_H + FORM_FIELD_GAP + FORM_CODE_H + FORM_FIELD_GAP + FORM_SAVE_H;
 const INNER_PAD = 24;
+
+const CODE_EDITOR_TEXT_SIZE = 15;
+const CODE_EDITOR_LINE_HEIGHT = 1.16;
+const CODE_EDITOR_LINE_PX = 18;
+const CODE_EDITOR_PAD_X = 12;
+const CODE_EDITOR_PAD_Y = 10;
+const CODE_EDITOR_GUTTER_W = 50;
+const CODE_EDITOR_WHEEL_STEP = CODE_EDITOR_LINE_PX * 3;
 
 const ROW_ACTION_BTN = 48;
 const ROW_ACTION_GAP = 10;
@@ -60,13 +68,15 @@ const ICON_INSET_ROW = 28;
 const HEADER_TOGGLE = 48;
 const ROW_ENTER_Y_OFFSET = 22;
 
-/** Full-width Infinite Yield tile docked to the bottom of the panel (tap to run — no row actions). */
-const INFINITE_YIELD_HERO_H = 300;
-/** Gap between the script list viewport and the top of the Infinite Yield tile. */
-const LIST_BEFORE_IY_GAP = 20;
-/** Vertical space reserved under the scroll view: gap + tile + bottom inset. */
-const IY_BOTTOM_DOCK_H = LIST_BEFORE_IY_GAP + INFINITE_YIELD_HERO_H + INNER_PAD;
+/** Script launch cards docked to the bottom of the panel (tap to run — no row actions). */
+const SCRIPT_DOCK_CARD_H = 300;
+const SCRIPT_DOCK_CARD_GAP = 20;
+/** Gap between the script list viewport and the top of the docked launch cards. */
+const LIST_BEFORE_SCRIPT_DOCK_GAP = 20;
+/** Vertical space reserved under the scroll view: gap + cards + bottom inset. */
+const SCRIPT_DOCK_H = LIST_BEFORE_SCRIPT_DOCK_GAP + SCRIPT_DOCK_CARD_H + INNER_PAD;
 const INFINITE_YIELD_SOURCE = "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source";
+const DEX_EXPLORER_SOURCE = "https://github.com/LorekeeperZinnia/Dex/releases/download/1.0.0/out.lua";
 
 async function runScriptFromUrl(url: string, src: string) {
 	try {
@@ -82,6 +92,23 @@ async function runScriptFromUrl(url: string, src: string) {
 /** Divider / hairlines — blend fg/bg so light themes don’t get a harsh white rule (see Sorbet + Card `outlined`). */
 function subtleHairline(theme: Theme["apps"]["players"]): Color3 {
 	return theme.foreground.Lerp(theme.background, 0.58);
+}
+
+function getCodeLineCount(text: string): number {
+	return math.max(1, text.split("\n").size());
+}
+
+function getCodeEditorContentHeight(text: string): number {
+	return math.max(FORM_CODE_H, CODE_EDITOR_PAD_Y * 2 + getCodeLineCount(text) * CODE_EDITOR_LINE_PX);
+}
+
+function getCodeLineNumbers(text: string): string {
+	const lines: string[] = [];
+	const lineCount = getCodeLineCount(text);
+	for (let i = 1; i <= lineCount; i++) {
+		lines.push(`${i}`);
+	}
+	return lines.join("\n");
 }
 
 interface RowProps {
@@ -293,6 +320,11 @@ function ScriptManager() {
 
 	const forceUpdate = useForcedUpdate();
 	useEffect(() => forceUpdate(), []);
+	useEffect(() => {
+		if (isCurrentlyOpen) {
+			dispatch(refreshScripts(loadScriptsFromFolder()));
+		}
+	}, [isCurrentlyOpen]);
 
 	const [showForm, setShowForm] = useState(false);
 	const [editingScriptId, setEditingScriptId] = useState<string | undefined>(undefined);
@@ -300,6 +332,9 @@ function ScriptManager() {
 	const [saveHover, setSaveHover] = useState(false);
 	const [nameText, setNameText] = useBinding("");
 	const [codeText, setCodeText] = useBinding("");
+	const codeScrollRef = useRef<ScrollingFrame>();
+	const codeEditorContentH = codeText.map(getCodeEditorContentHeight);
+	const codeLineNumberText = codeText.map(getCodeLineNumbers);
 
 	const finalPosition = new UDim2(0, BASE_PADDING / 2, 0.5, 0);
 	const animPosition = useSpring(
@@ -348,6 +383,15 @@ function ScriptManager() {
 		setCodeText("");
 	}
 
+	function scrollCodeEditor(direction: number) {
+		const scrollFrame = codeScrollRef.getValue();
+		if (scrollFrame === undefined) return;
+
+		const maxY = math.max(0, scrollFrame.AbsoluteCanvasSize.Y - scrollFrame.AbsoluteWindowSize.Y);
+		const nextY = math.clamp(scrollFrame.CanvasPosition.Y + direction * CODE_EDITOR_WHEEL_STEP, 0, maxY);
+		scrollFrame.CanvasPosition = new Vector2(scrollFrame.CanvasPosition.X, nextY);
+	}
+
 	/** If the script being edited is removed (e.g. deleted while the form is open), drop edit mode so the UI cannot get stuck. */
 	useEffect(() => {
 		if (editingScriptId === undefined) return;
@@ -385,6 +429,7 @@ function ScriptManager() {
 			}
 
 			try {
+				ensureScriptsFolder();
 				writefile(`${SCRIPTS_FOLDER}/${filename}.lua`, code);
 				if (filename !== existing.filename) {
 					delfile(`${SCRIPTS_FOLDER}/${existing.filename}.lua`);
@@ -417,6 +462,7 @@ function ScriptManager() {
 		}
 
 		try {
+			ensureScriptsFolder();
 			writefile(`${SCRIPTS_FOLDER}/${filename}.lua`, code);
 		} catch (e) {
 			warn(`[Orca] Failed to save script '${filename}': ${e}`);
@@ -602,27 +648,96 @@ function ScriptManager() {
 						{theme.button.outlined && (
 							<Border color={theme.button.foreground} radius={10} transparency={0.35} />
 						)}
-						<textbox
-							Text={codeText}
-							PlaceholderText={'-- paste or write your Lua script here\nprint("Hello from Orca!")'}
-							PlaceholderColor3={mutedFg.Lerp(theme.background, 0.35)}
-							Font="Code"
-							TextSize={15}
-							TextColor3={theme.foreground}
-							TextXAlignment="Left"
-							TextYAlignment="Top"
-							MultiLine={true}
-							ClearTextOnFocus={false}
-							Position={px(12, 10)}
-							Size={new UDim2(1, -24, 1, -20)}
+						<scrollingframe
+							Ref={codeScrollRef}
+							Active={true}
+							Size={scale(1, 1)}
+							CanvasSize={codeEditorContentH.map((h) => new UDim2(0, 0, 0, h))}
 							BackgroundTransparency={1}
 							BorderSizePixel={0}
-							Change={{
-								Text: (rbx) => {
-									setCodeText(rbx.Text);
-								},
-							}}
-						/>
+							ScrollBarImageColor3={hairline}
+							ScrollBarImageTransparency={0.45}
+							ScrollBarThickness={6}
+							ScrollingDirection="Y"
+						>
+							<frame
+								Size={codeEditorContentH.map((h) => new UDim2(1, 0, 0, h))}
+								BackgroundTransparency={1}
+								BorderSizePixel={0}
+							>
+								<frame
+									Size={new UDim2(0, CODE_EDITOR_GUTTER_W, 1, 0)}
+									BackgroundColor3={theme.background}
+									BackgroundTransparency={0.72}
+									BorderSizePixel={0}
+								/>
+								<textlabel
+									Text={codeLineNumberText}
+									Font="Code"
+									TextSize={CODE_EDITOR_TEXT_SIZE}
+									LineHeight={CODE_EDITOR_LINE_HEIGHT}
+									TextColor3={mutedFg.Lerp(theme.background, 0.35)}
+									TextTransparency={0.1}
+									TextXAlignment="Right"
+									TextYAlignment="Top"
+									Position={px(0, CODE_EDITOR_PAD_Y)}
+									Size={codeEditorContentH.map(
+										(h) =>
+											new UDim2(
+												0,
+												CODE_EDITOR_GUTTER_W - CODE_EDITOR_PAD_X,
+												0,
+												h - CODE_EDITOR_PAD_Y * 2,
+											),
+									)}
+									BackgroundTransparency={1}
+								/>
+								<frame
+									Size={codeEditorContentH.map((h) => new UDim2(0, 1, 0, h))}
+									Position={px(CODE_EDITOR_GUTTER_W, 0)}
+									BackgroundColor3={hairline}
+									BackgroundTransparency={theme.outlined ? 0.72 : 0.84}
+									BorderSizePixel={0}
+								/>
+								<textbox
+									Text={codeText}
+									PlaceholderText={
+										'-- paste or write your Lua script here\nprint("Hello from Orca!")'
+									}
+									PlaceholderColor3={mutedFg.Lerp(theme.background, 0.35)}
+									Font="Code"
+									TextSize={CODE_EDITOR_TEXT_SIZE}
+									LineHeight={CODE_EDITOR_LINE_HEIGHT}
+									TextColor3={theme.foreground}
+									TextXAlignment="Left"
+									TextYAlignment="Top"
+									TextWrapped={false}
+									MultiLine={true}
+									ClearTextOnFocus={false}
+									Position={px(CODE_EDITOR_GUTTER_W + CODE_EDITOR_PAD_X, CODE_EDITOR_PAD_Y)}
+									Size={codeEditorContentH.map(
+										(h) =>
+											new UDim2(
+												1,
+												-(CODE_EDITOR_GUTTER_W + CODE_EDITOR_PAD_X * 2),
+												0,
+												h - CODE_EDITOR_PAD_Y * 2,
+											),
+									)}
+									BackgroundTransparency={1}
+									BorderSizePixel={0}
+									Event={{
+										MouseWheelForward: () => scrollCodeEditor(-1),
+										MouseWheelBackward: () => scrollCodeEditor(1),
+									}}
+									Change={{
+										Text: (rbx) => {
+											setCodeText(rbx.Text);
+										},
+									}}
+								/>
+							</frame>
+						</scrollingframe>
 					</frame>
 
 					<Canvas
@@ -670,7 +785,7 @@ function ScriptManager() {
 				clipsDescendants
 			>
 				<scrollingframe
-					Size={new UDim2(1, 0, 1, -IY_BOTTOM_DOCK_H)}
+					Size={new UDim2(1, 0, 1, -SCRIPT_DOCK_H)}
 					Position={scale(0, 0)}
 					CanvasSize={scrollCanvasH.map((h) => new UDim2(0, 0, 0, h))}
 					BackgroundTransparency={1}
@@ -717,11 +832,26 @@ function ScriptManager() {
 					dropshadowSize={new Vector2(1.15, 1.4)}
 					dropshadowPosition={new Vector2(0.5, 0.6)}
 					anchorPoint={new Vector2(0, 1)}
-					size={new UDim2(1, -(INNER_PAD * 2), 0, INFINITE_YIELD_HERO_H)}
+					size={new UDim2(0.5, -(INNER_PAD + SCRIPT_DOCK_CARD_GAP / 2), 0, SCRIPT_DOCK_CARD_H)}
 					position={new UDim2(0, INNER_PAD, 1, -INNER_PAD)}
 					onActivate={() => runScriptFromUrl(INFINITE_YIELD_SOURCE, "Infinite Yield")}
 				>
 					<Content header="Infinite Yield" footer="github.com/EdgeIY" />
+				</ScriptCard>
+				<ScriptCard
+					Key="dex-explorer"
+					index={1}
+					backgroundImage="rbxassetid://8992290931"
+					backgroundImageSize={new Vector2(818, 1023)}
+					dropshadow="rbxassetid://8992291101"
+					dropshadowSize={new Vector2(1.15, 1.35)}
+					dropshadowPosition={new Vector2(0.5, 0.55)}
+					anchorPoint={new Vector2(1, 1)}
+					size={new UDim2(0.5, -(INNER_PAD + SCRIPT_DOCK_CARD_GAP / 2), 0, SCRIPT_DOCK_CARD_H)}
+					position={new UDim2(1, -INNER_PAD, 1, -INNER_PAD)}
+					onActivate={() => runScriptFromUrl(DEX_EXPLORER_SOURCE, "Dex Explorer")}
+				>
+					<Content header="Dex Explorer" footer="github.com/LorekeeperZinnia" />
 				</ScriptCard>
 			</Canvas>
 		</Canvas>
