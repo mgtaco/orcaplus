@@ -51,3 +51,21 @@ jobs:
             dist/Orca.lua
             dist/Orca.debug.lua
             dist/Orca.rbxm
+
+      - name: Add release marker commit to graph
+        run: |
+          RELEASE_TAG="${{ github.event.release.tag_name || inputs.version }}"
+          RELEASE_MESSAGE="🐋 Release $RELEASE_TAG"
+
+          git fetch origin master:refs/remotes/origin/master
+
+          if git log --format=%s origin/master | grep -Fx "$RELEASE_MESSAGE"; then
+            echo "Release marker already exists: $RELEASE_MESSAGE"
+            exit 0
+          fi
+
+          git switch --force-create release-marker origin/master
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "$RELEASE_MESSAGE"
+          git push origin HEAD:master
